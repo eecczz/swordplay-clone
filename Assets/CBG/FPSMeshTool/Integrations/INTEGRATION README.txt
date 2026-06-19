@@ -1,0 +1,2 @@
+IMPORTANT:  You only need the UCC integration if you have Opsive Ultimate Character Controller and are using both first and third person perspective in your project.  If you have UFPS instead of UCC, you don't need this integration.
+The integration contains a component called UCCFPSMaterialController, which allows for easy runtime material switching to show/hide the right sets of arms/heads etc at runtime.  If your game never switches between first and third person, you don't need this.
