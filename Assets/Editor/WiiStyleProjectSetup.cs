@@ -55,7 +55,7 @@ namespace Swordplay.Visuals.Editor
         private const string SetupVersion = "wii-resort-style-v3";
         private static readonly string SetupKey = "Swordplay." + SetupVersion + "." + Application.dataPath;
         private static readonly string CloudBackdropKey = "Swordplay.CloudBackdrop.v1." + Application.dataPath;
-        private static readonly string EditModeStyleKey = "Swordplay.EditModeStyle.v3." + Application.dataPath;
+        private static readonly string EditModeStyleKey = "Swordplay.EditModeStyle.v4." + Application.dataPath;
         private const string CloudPackRoot = "Assets/DuNguyn/Clouds Pack v07";
         private const string OriginalSkyboxPath = "Assets/Materials/New Material 1.mat";
 
@@ -103,6 +103,10 @@ namespace Swordplay.Visuals.Editor
                 var go = new GameObject("Wii Swordplay Visual Style");
                 SceneManager.MoveGameObjectToScene(go, scene);
                 style = go.AddComponent<Swordplay.Visuals.WiiSwordplayStyle>();
+            }
+            else if (!style.isActiveAndEnabled)
+            {
+                return;
             }
 
             Material originalSkybox = AssetDatabase.LoadAssetAtPath<Material>(OriginalSkyboxPath);

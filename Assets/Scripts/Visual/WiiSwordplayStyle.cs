@@ -23,17 +23,22 @@ namespace Swordplay.Visuals
         private Volume styleVolume;
 
         [Header("Sun")]
-        [SerializeField] private Color sunlight = new(1f, 0.95f, 0.86f, 1f);
-        [SerializeField, Range(0f, 3f)] private float sunIntensity = 1.22f;
+        [SerializeField] private Color sunlight = new(1f, 0.97f, 0.91f, 1f);
+        [SerializeField, Range(0f, 3f)] private float sunIntensity = 1.30f;
         [SerializeField] private Vector3 sunEulerAngles = new(42f, -32f, 0f);
 
+        [Header("Sky")]
+        [SerializeField, Range(-0.4f, 0.4f)] private float skyVerticalOffset = -0.13f;
+
         [Header("World")]
-        [SerializeField] private Color skyTint = new(0.82f, 0.84f, 0.83f, 1f);
-        [SerializeField] private Color horizonTint = new(0.69f, 0.72f, 0.68f, 1f);
-        [SerializeField] private Color groundBounce = new(0.38f, 0.38f, 0.33f, 1f);
-        [SerializeField] private Color fogColor = new(0.66f, 0.82f, 0.91f, 1f);
-        [SerializeField, Min(1f)] private float fogStart = 90f;
-        [SerializeField, Min(1f)] private float fogEnd = 360f;
+        [SerializeField] private Color skyTint = new(0.72f, 0.86f, 1f, 1f);
+        [SerializeField] private Color horizonTint = new(0.94f, 0.91f, 0.80f, 1f);
+        [SerializeField] private Color groundBounce = new(0.46f, 0.42f, 0.34f, 1f);
+        [SerializeField, Range(0f, 2f)] private float ambientIntensity = 0.88f;
+        [SerializeField] private bool enableFog;
+        [SerializeField] private Color fogColor = new(0.72f, 0.86f, 0.96f, 1f);
+        [SerializeField, Min(1f)] private float fogStart = 180f;
+        [SerializeField, Min(1f)] private float fogEnd = 600f;
 
         [Header("Material response")]
         [SerializeField, Range(0f, 1f)] private float environmentSmoothness = 0.22f;
@@ -46,8 +51,11 @@ namespace Swordplay.Visuals
             WiiSwordplayStyle existing = FindFirstObjectByType<WiiSwordplayStyle>(FindObjectsInactive.Include);
             if (existing != null)
             {
-                instance = existing;
-                existing.ApplyStyle();
+                if (existing.isActiveAndEnabled)
+                {
+                    instance = existing;
+                    existing.ApplyStyle();
+                }
                 return;
             }
 
@@ -72,6 +80,9 @@ namespace Swordplay.Visuals
         private void OnDisable()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            RenderSettings.fog = false;
+            if (styleVolume == null) styleVolume = GetComponent<Volume>();
+            if (styleVolume != null) styleVolume.enabled = false;
             RestoreMaterialBlocks();
             RestoreCharacterMaterials();
             generatedMaterials.Clear();
@@ -117,12 +128,16 @@ namespace Swordplay.Visuals
             RenderSettings.ambientSkyColor = skyTint;
             RenderSettings.ambientEquatorColor = horizonTint;
             RenderSettings.ambientGroundColor = groundBounce;
-            // Keep the scene's original bright blue skybox visible, but decouple it from object lighting.
-            // Neutral tri-light and weak reflections prevent the sky texture from dyeing skin and whites blue.
-            RenderSettings.ambientIntensity = 0.76f;
+            // Keep the sky blue without letting it dye every material. The warmer horizon and ground
+            // bounce prevent the neutral grey veil that a flat ambient palette creates.
+            RenderSettings.ambientIntensity = ambientIntensity;
             RenderSettings.reflectionIntensity = 0.08f;
 
-            RenderSettings.fog = true;
+            Material skybox = RenderSettings.skybox;
+            if (skybox != null && skybox.HasProperty("_VerticalOffset"))
+                skybox.SetFloat("_VerticalOffset", skyVerticalOffset);
+
+            RenderSettings.fog = enableFog;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = fogColor;
             RenderSettings.fogStartDistance = fogStart;
@@ -180,6 +195,7 @@ namespace Swordplay.Visuals
             {
                 styleVolume = gameObject.AddComponent<Volume>();
             }
+            styleVolume.enabled = true;
             styleVolume.isGlobal = true;
             styleVolume.priority = 100f;
 
