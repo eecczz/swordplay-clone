@@ -9,6 +9,9 @@ Shader "Swordplay/Wii Soft Character"
         _HighlightSize("Highlight Size", Range(0,1)) = 0.42
         _HighlightStrength("Highlight Strength", Range(0,2)) = 0.8
         _RimStrength("Soft Rim", Range(0,1)) = 0.18
+        [HideInInspector] _SrcBlend("Source Blend", Float) = 1
+        [HideInInspector] _DstBlend("Destination Blend", Float) = 0
+        [HideInInspector] _ZWrite("Depth Write", Float) = 1
     }
     SubShader
     {
@@ -20,7 +23,8 @@ Shader "Swordplay/Wii Soft Character"
             Name "ForwardLit"
             Tags { "LightMode"="UniversalForward" }
             Cull Back
-            ZWrite On
+            Blend [_SrcBlend] [_DstBlend]
+            ZWrite [_ZWrite]
 
             HLSLPROGRAM
             #pragma vertex vert

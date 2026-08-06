@@ -21,9 +21,12 @@ namespace Swordplay.Visuals
         private readonly Dictionary<Renderer, Material[]> originalMaterials = new();
         private readonly List<Material> generatedMaterials = new();
         private Volume styleVolume;
+#if UNITY_EDITOR
+        [System.NonSerialized] private bool validationQueued;
+#endif
 
         [Header("Sun")]
-        [SerializeField] private Color sunlight = new(1f, 0.97f, 0.91f, 1f);
+        [SerializeField] private Color sunlight = Color.white;
         [SerializeField, Range(0f, 3f)] private float sunIntensity = 1.30f;
         [SerializeField] private Vector3 sunEulerAngles = new(42f, -32f, 0f);
 
@@ -32,9 +35,10 @@ namespace Swordplay.Visuals
 
         [Header("World")]
         [SerializeField] private Color skyTint = new(0.72f, 0.86f, 1f, 1f);
-        [SerializeField] private Color horizonTint = new(0.94f, 0.91f, 0.80f, 1f);
-        [SerializeField] private Color groundBounce = new(0.46f, 0.42f, 0.34f, 1f);
+        [SerializeField] private Color horizonTint = new(0.86f, 0.91f, 0.94f, 1f);
+        [SerializeField] private Color groundBounce = new(0.40f, 0.42f, 0.42f, 1f);
         [SerializeField, Range(0f, 2f)] private float ambientIntensity = 0.88f;
+        [SerializeField, Range(-30f, 30f)] private float colorTemperature = -3f;
         [SerializeField] private bool enableFog;
         [SerializeField] private Color fogColor = new(0.72f, 0.86f, 0.96f, 1f);
         [SerializeField, Min(1f)] private float fogStart = 180f;
@@ -44,6 +48,15 @@ namespace Swordplay.Visuals
         [SerializeField, Range(0f, 1f)] private float environmentSmoothness = 0.22f;
         [SerializeField, Range(0f, 1f)] private float characterSmoothness = 0.34f;
         [SerializeField, Range(0f, 1f)] private float saturationLift = 0.08f;
+
+        [Header("Character Shading")]
+        [SerializeField] private Color characterShadowTint = new(0.58f, 0.68f, 0.70f, 1f);
+        [SerializeField] private Color characterHighlightColor = Color.white;
+        [SerializeField, Range(0f, 1f)] private float headHighlightSize = 0.32f;
+        [SerializeField, Range(0f, 2f)] private float headHighlightStrength = 1.15f;
+        [SerializeField, Range(0f, 1f)] private float bodyHighlightSize = 0.48f;
+        [SerializeField, Range(0f, 2f)] private float bodyHighlightStrength = 0.62f;
+        [SerializeField, Range(0f, 1f)] private float characterRimStrength = 0.18f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
@@ -90,6 +103,25 @@ namespace Swordplay.Visuals
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => ApplyStyle();
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (validationQueued) return;
+            validationQueued = true;
+            EditorApplication.delayCall += ApplyValidatedStyle;
+        }
+
+        private void ApplyValidatedStyle()
+        {
+            validationQueued = false;
+            if (this == null || !isActiveAndEnabled || EditorApplication.isCompiling || EditorApplication.isUpdating)
+                return;
+
+            ApplyStyle();
+            SceneView.RepaintAll();
+        }
+#endif
 
         [ContextMenu("Apply Wii Swordplay Style")]
         public void ApplyStyle()
@@ -207,7 +239,7 @@ namespace Swordplay.Visuals
             color.colorFilter.Override(Color.white);
 
             if (!profile.TryGet(out WhiteBalance balance)) balance = profile.Add<WhiteBalance>(true);
-            balance.temperature.Override(2f);
+            balance.temperature.Override(colorTemperature);
             balance.tint.Override(0f);
 
             if (!profile.TryGet(out Bloom bloom)) bloom = profile.Add<Bloom>(true);
@@ -278,7 +310,10 @@ namespace Swordplay.Visuals
                 {
                     Material source = originals[i];
                     replacements[i] = source;
-                    if (source == null || source.renderQueue >= 3000 || source.GetTag("RenderType", false) == "Transparent") continue;
+                    if (source == null) continue;
+
+                    bool transparent = source.renderQueue >= (int)RenderQueue.Transparent ||
+                                       source.GetTag("RenderType", false) == "Transparent";
 
                     Material styled = GetOrCreateCharacterMaterial(source, characterShader);
                     Texture texture = source.HasProperty("_BaseMap") ? source.GetTexture("_BaseMap") :
@@ -287,11 +322,20 @@ namespace Swordplay.Visuals
                                   source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white;
                     if (texture != null) styled.SetTexture("_BaseMap", texture);
                     styled.SetColor("_BaseColor", color);
-                    styled.SetColor("_ShadowTint", new Color(0.58f, 0.68f, 0.70f, 1f));
-                    styled.SetColor("_HighlightColor", new Color(1f, 0.985f, 0.94f, 1f));
-                    styled.SetFloat("_HighlightSize", IsHead(renderer.transform) ? 0.32f : 0.48f);
-                    styled.SetFloat("_HighlightStrength", IsHead(renderer.transform) ? 1.15f : 0.62f);
-                    styled.SetFloat("_RimStrength", 0.18f);
+                    bool head = IsHead(renderer.transform);
+                    styled.SetColor("_ShadowTint", characterShadowTint);
+                    styled.SetColor("_HighlightColor", characterHighlightColor);
+                    styled.SetFloat("_HighlightSize", head ? headHighlightSize : bodyHighlightSize);
+                    styled.SetFloat("_HighlightStrength", head ? headHighlightStrength : bodyHighlightStrength);
+                    styled.SetFloat("_RimStrength", characterRimStrength);
+                    ConfigureCharacterSurface(styled, transparent);
+#if UNITY_EDITOR
+                    if (!Application.isPlaying && EditorUtility.IsPersistent(styled))
+                    {
+                        EditorUtility.SetDirty(styled);
+                        AssetDatabase.SaveAssetIfDirty(styled);
+                    }
+#endif
                     replacements[i] = styled;
                     if (!IsPersistentAsset(styled)) generatedMaterials.Add(styled);
                     changed = true;
@@ -301,6 +345,17 @@ namespace Swordplay.Visuals
                 originalMaterials[renderer] = originals;
                 renderer.sharedMaterials = replacements;
             }
+        }
+
+        private static void ConfigureCharacterSurface(Material material, bool transparent)
+        {
+            material.SetFloat("_SrcBlend", transparent ? (float)BlendMode.SrcAlpha : (float)BlendMode.One);
+            material.SetFloat("_DstBlend", transparent ? (float)BlendMode.OneMinusSrcAlpha : (float)BlendMode.Zero);
+            material.SetFloat("_ZWrite", transparent ? 0f : 1f);
+            material.SetOverrideTag("RenderType", transparent ? "Transparent" : "Opaque");
+            material.renderQueue = transparent ? (int)RenderQueue.Transparent : (int)RenderQueue.Geometry;
+            material.SetShaderPassEnabled("ShadowCaster", !transparent);
+            material.SetShaderPassEnabled("DepthOnly", !transparent);
         }
 
         private Color LiftColor(Color source)
