@@ -50,6 +50,7 @@ namespace Swordplay.Visuals
         [SerializeField, Range(0f, 1f)] private float saturationLift = 0.08f;
 
         [Header("Character Shading")]
+        [SerializeField] private Shader characterShader;
         [SerializeField] private Color characterShadowTint = new(0.58f, 0.68f, 0.70f, 1f);
         [SerializeField] private Color characterHighlightColor = Color.white;
         [SerializeField, Range(0f, 1f)] private float headHighlightSize = 0.32f;
@@ -295,9 +296,17 @@ namespace Swordplay.Visuals
 
         private void ConfigureCharacterShaders()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // WebGL builds use the scene's serialized URP/Lit character materials.
+            // Changing local shader keywords at runtime can request a stripped variant
+            // and make the entire character hierarchy render with Unity's pink error shader.
+            return;
+#endif
             RestoreCharacterMaterials();
-            Shader characterShader = Shader.Find("Swordplay/Wii Soft Character");
-            if (characterShader == null) return;
+            Shader styleShader = characterShader != null
+                ? characterShader
+                : Shader.Find("Swordplay/Wii Soft Character");
+            if (styleShader == null) return;
 
             foreach (var renderer in FindObjectsByType<Renderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
@@ -315,7 +324,7 @@ namespace Swordplay.Visuals
                     bool transparent = source.renderQueue >= (int)RenderQueue.Transparent ||
                                        source.GetTag("RenderType", false) == "Transparent";
 
-                    Material styled = GetOrCreateCharacterMaterial(source, characterShader);
+                    Material styled = GetOrCreateCharacterMaterial(source, styleShader);
                     Texture texture = source.HasProperty("_BaseMap") ? source.GetTexture("_BaseMap") :
                                       source.HasProperty("_MainTex") ? source.GetTexture("_MainTex") : null;
                     Color color = source.HasProperty("_BaseColor") ? source.GetColor("_BaseColor") :
@@ -323,14 +332,34 @@ namespace Swordplay.Visuals
                     if (texture != null) styled.SetTexture("_BaseMap", texture);
                     styled.SetColor("_BaseColor", color);
                     bool head = IsHead(renderer.transform);
-                    styled.SetColor("_ShadowTint", characterShadowTint);
-                    styled.SetColor("_HighlightColor", characterHighlightColor);
-                    styled.SetFloat("_HighlightSize", head ? headHighlightSize : bodyHighlightSize);
-                    styled.SetFloat("_HighlightStrength", head ? headHighlightStrength : bodyHighlightStrength);
-                    styled.SetFloat("_RimStrength", characterRimStrength);
+                    if (styled.HasProperty("_ShadowTint")) styled.SetColor("_ShadowTint", characterShadowTint);
+                    if (styled.HasProperty("_HighlightColor")) styled.SetColor("_HighlightColor", characterHighlightColor);
+                    if (styled.HasProperty("_HighlightSize")) styled.SetFloat("_HighlightSize", head ? headHighlightSize : bodyHighlightSize);
+                    if (styled.HasProperty("_HighlightStrength")) styled.SetFloat("_HighlightStrength", head ? headHighlightStrength : bodyHighlightStrength);
+                    if (styled.HasProperty("_RimStrength")) styled.SetFloat("_RimStrength", characterRimStrength);
+                    if (styled.HasProperty("_SpecColor"))
+                    {
+                        float strength = head ? headHighlightStrength : bodyHighlightStrength;
+                        styled.SetColor("_SpecColor", characterHighlightColor * Mathf.Lerp(0.28f, 0.62f, strength * 0.5f));
+                        if (styled.HasProperty("_WorkflowMode"))
+                        {
+                            styled.SetFloat("_WorkflowMode", 0f);
+                            styled.DisableKeyword("_SPECULAR_COLOR");
+                            styled.EnableKeyword("_SPECULAR_SETUP");
+                        }
+                        else
+                        {
+                            styled.EnableKeyword("_SPECULAR_COLOR");
+                        }
+                    }
+                    if (styled.HasProperty("_Smoothness"))
+                    {
+                        float size = head ? headHighlightSize : bodyHighlightSize;
+                        styled.SetFloat("_Smoothness", Mathf.Lerp(0.42f, 0.72f, size));
+                    }
                     ConfigureCharacterSurface(styled, transparent);
 #if UNITY_EDITOR
-                    if (!Application.isPlaying && EditorUtility.IsPersistent(styled))
+                    if (!Application.isPlaying && !BuildPipeline.isBuildingPlayer && EditorUtility.IsPersistent(styled))
                     {
                         EditorUtility.SetDirty(styled);
                         AssetDatabase.SaveAssetIfDirty(styled);
@@ -351,7 +380,14 @@ namespace Swordplay.Visuals
         {
             material.SetFloat("_SrcBlend", transparent ? (float)BlendMode.SrcAlpha : (float)BlendMode.One);
             material.SetFloat("_DstBlend", transparent ? (float)BlendMode.OneMinusSrcAlpha : (float)BlendMode.Zero);
+            if (material.HasProperty("_SrcBlendAlpha")) material.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            if (material.HasProperty("_DstBlendAlpha")) material.SetFloat("_DstBlendAlpha", transparent ? (float)BlendMode.OneMinusSrcAlpha : (float)BlendMode.Zero);
             material.SetFloat("_ZWrite", transparent ? 0f : 1f);
+            if (material.HasProperty("_Surface")) material.SetFloat("_Surface", transparent ? 1f : 0f);
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.DisableKeyword("_ALPHAMODULATE_ON");
+            if (transparent) material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            else material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.SetOverrideTag("RenderType", transparent ? "Transparent" : "Opaque");
             material.renderQueue = transparent ? (int)RenderQueue.Transparent : (int)RenderQueue.Geometry;
             material.SetShaderPassEnabled("ShadowCaster", !transparent);
