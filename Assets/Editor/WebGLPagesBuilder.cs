@@ -7,6 +7,7 @@ using UnityEngine;
 public static class WebGLPagesBuilder
 {
     private const string OutputPath = "docs";
+    private const int InitialMemorySizeMb = 256;
 
     [MenuItem("Swordplay/Build WebGL Pages %&w")]
     public static void BuildWebGLPages()
@@ -21,11 +22,15 @@ public static class WebGLPagesBuilder
 
         WebGLCompressionFormat previousCompression = PlayerSettings.WebGL.compressionFormat;
         bool previousFallback = PlayerSettings.WebGL.decompressionFallback;
+        int previousInitialMemorySize = PlayerSettings.WebGL.initialMemorySize;
 
         try
         {
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
             PlayerSettings.WebGL.decompressionFallback = false;
+            // Give the full scene enough contiguous WASM heap up front. This avoids
+            // startup-time heap resizing while textures, meshes, and physics data load.
+            PlayerSettings.WebGL.initialMemorySize = InitialMemorySizeMb;
 
             if (!EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.WebGL, BuildTarget.WebGL))
                 throw new InvalidOperationException("Could not switch the active build target to WebGL.");
@@ -48,6 +53,7 @@ public static class WebGLPagesBuilder
         {
             PlayerSettings.WebGL.compressionFormat = previousCompression;
             PlayerSettings.WebGL.decompressionFallback = previousFallback;
+            PlayerSettings.WebGL.initialMemorySize = previousInitialMemorySize;
         }
     }
 }
