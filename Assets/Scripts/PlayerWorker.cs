@@ -63,6 +63,8 @@ public class PlayerWorker : MonoBehaviour
         rigid = GetComponent<Rigidbody>();
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
+        if (legAnim != null)
+            legAnim.enabled = true;
         rb = GetComponent<RigBuilder>();
         audioSource = GetComponent<AudioSource>();
         nav = body.GetComponent<NavMeshAgent>();
@@ -214,13 +216,13 @@ public class PlayerWorker : MonoBehaviour
             ma.data.sourceObjects = data;
             rb.Build();
         }
-        else if(onTarget && ma.data.sourceObjects[0].transform == crosshead)
+        /*else if(onTarget && ma.data.sourceObjects[0].transform == crosshead)
         {
             var data = ma.data.sourceObjects;
             data.SetTransform(0, entAnim.GetBoneTransform(HumanBodyBones.Head));
             ma.data.sourceObjects = data;
             rb.Build();
-        }
+        }*/
         if (health > -1)
         {
             //player movement
@@ -309,7 +311,10 @@ public class PlayerWorker : MonoBehaviour
                 onTarget = false;
             }
         }
-        Camera.main.transform.position = new Vector3(anim.GetBoneTransform(HumanBodyBones.Hips).position.x, anim.GetBoneTransform(HumanBodyBones.Hips).position.y + camPos.y, anim.GetBoneTransform(HumanBodyBones.Hips).position.z) - transform.forward * camPos.z;
+        // Legs Animator adjusts the hips in LateUpdate. Following that bone made the
+        // player appear below the camera whenever procedural leg IK was enabled.
+        // Use the stable character root as the camera anchor instead.
+        Camera.main.transform.position = transform.position + Vector3.up * camPos.y - transform.forward * camPos.z;
         Camera.main.transform.rotation = Quaternion.Euler(new Vector3(20, transform.rotation.eulerAngles.y, 0));
         /*if (!IsStuffInView())
         {

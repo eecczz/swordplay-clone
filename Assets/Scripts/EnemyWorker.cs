@@ -66,6 +66,8 @@ public class EnemyWorker : MonoBehaviour
         rigid = GetComponent<Rigidbody>();
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
+        if (legAnim != null)
+            legAnim.enabled = true;
         rb = GetComponent<RigBuilder>();
         var data = GetComponentInChildren<MultiAimConstraint>().data.sourceObjects;
         data.SetTransform(0, playerAnim.GetBoneTransform(HumanBodyBones.Head));
