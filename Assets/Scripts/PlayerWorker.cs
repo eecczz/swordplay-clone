@@ -224,7 +224,7 @@ public class PlayerWorker : MonoBehaviour
         if (health > -1)
         {
             //player movement
-            if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
+            if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
             {
                 float x = Input.GetAxis("Horizontal"); // 수평 입력
                 float z = Input.GetAxis("Vertical"); // 수직 입력
@@ -332,14 +332,6 @@ public class PlayerWorker : MonoBehaviour
             {
                 rig.weight = 1;
             }
-            if (anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
-            {
-                legAnim.UseGluing = false;
-            }
-            else
-            {
-                legAnim.UseGluing = true;
-            }
         }
         if (miiMotion) return;
 
@@ -412,6 +404,7 @@ public class PlayerWorker : MonoBehaviour
             anim.GetBoneTransform(HumanBodyBones.RightHand).rotation = newRightRot;
             anim.GetBoneTransform(HumanBodyBones.LeftHand).rotation = newLeftRot;
         }
+
     }
 
     private void OnCollisionEnter(Collision collision)
