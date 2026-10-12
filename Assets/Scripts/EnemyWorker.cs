@@ -62,7 +62,9 @@ public class EnemyWorker : MonoBehaviour
         hitVFX = Resources.Load<GameObject>($"Prefab/HitVFX");
         shieldVFX = Resources.Load<GameObject>($"Prefab/ShieldVFX");
         audioSource = GetComponent<AudioSource>();
-        playerAnim = PlayerWorker.player.GetComponent<Animator>();
+        playerAnim = PlayerWorker.playerAnimator != null
+            ? PlayerWorker.playerAnimator
+            : PlayerWorker.player.GetComponent<Animator>();
         rigid = GetComponent<Rigidbody>();
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();

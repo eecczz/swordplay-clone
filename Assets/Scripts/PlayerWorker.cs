@@ -8,7 +8,13 @@ using FIMSpace.FProceduralAnimation;
 public class PlayerWorker : MonoBehaviour
 {
     public static Transform player;
+    public static Animator playerAnimator;
     [SerializeField] private Transform crosshead;
+    [Header("Character rig overrides")]
+    [Tooltip("Leave empty for the original character. Assign a child Animator when the visible character rig lives below this gameplay root.")]
+    [SerializeField] private Animator animatorOverride;
+    [Tooltip("Leave empty for the original character. Assign the Rig Builder that belongs to Animator Override when using a replacement character.")]
+    [SerializeField] private RigBuilder rigBuilderOverride;
     private Animator anim;
     public static Transform psword;
     [SerializeField] private Transform sword;
@@ -56,14 +62,17 @@ public class PlayerWorker : MonoBehaviour
         endUI.gameObject.SetActive(false);
         isEnd = false;
         Cursor.visible = false;
-        anim = GetComponent<Animator>();
-        psword = GetComponentInChildren<TargetMatching>().transform;
+        anim = animatorOverride != null ? animatorOverride : GetComponent<Animator>();
+        playerAnimator = anim;
+        TargetMatching weaponTarget = GetComponentInChildren<TargetMatching>(true);
+        psword = weaponTarget != null ? weaponTarget.transform : null;
+        if (sword == null) sword = psword;
         hitVFX = Resources.Load<GameObject>($"Prefab/HitVFX 1");
         shieldVFX = Resources.Load<GameObject>($"Prefab/ShieldVFX");
         rigid = GetComponent<Rigidbody>();
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
-        rb = GetComponent<RigBuilder>();
+        rb = rigBuilderOverride != null ? rigBuilderOverride : GetComponent<RigBuilder>();
         audioSource = GetComponent<AudioSource>();
         nav = body.GetComponent<NavMeshAgent>();
         preScore = (new Vector3(0, 60) - new Vector3(tx, ty)).magnitude;
