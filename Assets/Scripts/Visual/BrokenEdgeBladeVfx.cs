@@ -58,6 +58,10 @@ namespace Swordplay.Visuals
         [SerializeField, HideInInspector] private int presetVersion;
 
         private readonly List<TrailSample> samples = new();
+        private readonly List<Vector3> trailVertices = new(72);
+        private readonly List<Vector2> trailUvs = new(72);
+        private readonly List<Color32> trailColors = new(72);
+        private readonly List<int> trailTriangles = new(210);
         private Renderer sourceRenderer;
         private GameObject auraObject;
         private GameObject edgeRibbonObject;
@@ -76,6 +80,7 @@ namespace Swordplay.Visuals
         private float bladeThinRadius;
         private Vector3 previousTip;
         private bool hasPreviousTip;
+        private bool trailMeshHasGeometry;
         private bool markerRefitRequired;
 #if UNITY_EDITOR
         private bool rebuildQueued;
@@ -707,15 +712,10 @@ namespace Swordplay.Visuals
         {
             if (trailMesh == null || sourceRenderer == null) return;
             float now = Time.time;
-            // Trail only the short rear shoulder of the pointed tip. The full
-            // blade no longer becomes a sheet; one compact tip tongue is pulled
-            // through space and tapers toward the real apex.
-            Vector3 axis = (localTip - localBase).normalized;
-            float bladeLength = Vector3.Distance(localBase, localTip);
-            Vector3 rearTipRoot = localTip
-                                  - axis * (bladeLength * 0.115f)
-                                  - localWideAxis * (bladeWideRadius * 0.55f);
-            Vector3 bladeBase = sourceRenderer.transform.TransformPoint(rearTipRoot);
+            // The shader separates this complete span into individual cylindrical
+            // flame roots. Keeping the full span here lets every cylinder inherit
+            // motion history and stretch, while the shader prevents a solid sheet.
+            Vector3 bladeBase = sourceRenderer.transform.TransformPoint(localBase);
             Vector3 bladeTip = sourceRenderer.transform.TransformPoint(localTip);
             float speed = hasPreviousTip
                 ? Vector3.Distance(bladeTip, previousTip) / Mathf.Max(Time.deltaTime, 0.0001f)
@@ -736,14 +736,31 @@ namespace Swordplay.Visuals
 
         private void BuildTrailMesh(float now)
         {
-            trailMesh.Clear(false);
-            if (samples.Count < 2) return;
+            // Keep the dynamic vertex layout and reuse all CPU-side collections.
+            // The former arrays were allocated for every active sword every frame,
+            // producing avoidable GC pressure in the already-heavy dungeon scene.
+            if (samples.Count < 2)
+            {
+                if (trailMeshHasGeometry)
+                {
+                    trailMesh.Clear(true);
+                    trailMeshHasGeometry = false;
+                }
+                return;
+            }
+            trailMesh.Clear(true);
 
             int count = samples.Count;
-            var vertices = new Vector3[count * 2];
-            var uv = new Vector2[count * 2];
-            var colors = new Color32[count * 2];
-            var triangles = new int[(count - 1) * 6];
+            trailVertices.Clear();
+            trailUvs.Clear();
+            trailColors.Clear();
+            trailTriangles.Clear();
+            int vertexCapacity = count * 2;
+            int triangleCapacity = (count - 1) * 6;
+            if (trailVertices.Capacity < vertexCapacity) trailVertices.Capacity = vertexCapacity;
+            if (trailUvs.Capacity < vertexCapacity) trailUvs.Capacity = vertexCapacity;
+            if (trailColors.Capacity < vertexCapacity) trailColors.Capacity = vertexCapacity;
+            if (trailTriangles.Capacity < triangleCapacity) trailTriangles.Capacity = triangleCapacity;
 
             for (int i = 0; i < count; i++)
             {
@@ -754,27 +771,29 @@ namespace Swordplay.Visuals
                 float stretchedFade = Mathf.Pow(1f - age01, 0.62f);
                 byte alpha = (byte)Mathf.RoundToInt(255f * trailOpacity * stretchedFade);
                 int vertex = i * 2;
-                vertices[vertex] = samples[i].Base;
-                vertices[vertex + 1] = samples[i].Tip;
-                uv[vertex] = new Vector2(0f, age01);
-                uv[vertex + 1] = new Vector2(1f, age01);
-                colors[vertex] = colors[vertex + 1] = new Color32(255, 255, 255, alpha);
+                trailVertices.Add(samples[i].Base);
+                trailVertices.Add(samples[i].Tip);
+                trailUvs.Add(new Vector2(0f, age01));
+                trailUvs.Add(new Vector2(1f, age01));
+                Color32 color = new(255, 255, 255, alpha);
+                trailColors.Add(color);
+                trailColors.Add(color);
 
                 if (i >= count - 1) continue;
-                int triangle = i * 6;
-                triangles[triangle] = vertex;
-                triangles[triangle + 1] = vertex + 2;
-                triangles[triangle + 2] = vertex + 1;
-                triangles[triangle + 3] = vertex + 1;
-                triangles[triangle + 4] = vertex + 2;
-                triangles[triangle + 5] = vertex + 3;
+                trailTriangles.Add(vertex);
+                trailTriangles.Add(vertex + 2);
+                trailTriangles.Add(vertex + 1);
+                trailTriangles.Add(vertex + 1);
+                trailTriangles.Add(vertex + 2);
+                trailTriangles.Add(vertex + 3);
             }
 
-            trailMesh.vertices = vertices;
-            trailMesh.uv = uv;
-            trailMesh.colors32 = colors;
-            trailMesh.triangles = triangles;
+            trailMesh.SetVertices(trailVertices);
+            trailMesh.SetUVs(0, trailUvs);
+            trailMesh.SetColors(trailColors);
+            trailMesh.SetTriangles(trailTriangles, 0, true);
             trailMesh.RecalculateBounds();
+            trailMeshHasGeometry = true;
         }
 
         private Material CreateAuraMaterial(Shader shader, bool drawCore)
@@ -849,6 +868,7 @@ namespace Swordplay.Visuals
             trailMaterial = null;
             samples.Clear();
             hasPreviousTip = false;
+            trailMeshHasGeometry = false;
         }
 
         private void ReleaseAura()

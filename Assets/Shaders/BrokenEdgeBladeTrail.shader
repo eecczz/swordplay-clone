@@ -82,10 +82,10 @@ Shader "Swordplay/Broken Edge Blade Trail"
 
             half4 Frag(Varyings input) : SV_Target
             {
-                // x only spans the short rear shoulder at the blade tip now; y is
-                // motion-sample age. Shape that small strip into one continuous
-                // stretched tongue instead of turning the complete blade into a
-                // broad afterimage sheet.
+                // x spans the blade and y is motion-sample age. Split x into
+                // discrete cylindrical flame roots, but give every root its own
+                // non-zero reach through motion history. They all stretch without
+                // merging into a solid rectangular sheet.
                 half blade01 = saturate(input.uv.x);
                 half age = saturate(input.uv.y);
                 half time = _Time.y * (_FlameSpeed * 0.18h);
@@ -94,25 +94,34 @@ Shader "Swordplay/Broken Edge Blade Trail"
                 half fine = ValueNoise(half2(blade01 * detail * 2.13h - time, age * detail * 1.47h + time * 0.57h));
                 half fireNoise = coarse * 0.7h + fine * 0.3h;
 
-                // A single oval/cylindrical tongue. As it stretches backward its
-                // cross-section narrows and its centre moves toward x=1, which is
-                // the real blade apex. The oldest end therefore finishes as one
-                // clean pointed tip rather than a row of separate discs.
-                half ageCurve = pow(age, 0.72h);
-                half tongueCenter = lerp(0.50h, 1.0h, ageCurve);
-                half tongueHalfWidth = 0.515h * pow(saturate(1.0h - age), 0.62h) + 0.008h;
-                half lateralDistance = abs(blade01 - tongueCenter);
-                half sideMask = 1.0h - smoothstep(
-                    tongueHalfWidth * 0.82h,
-                    tongueHalfWidth + 0.008h,
-                    lateralDistance);
+                const half cylinderCount = 9.0h;
+                half cylinderCoordinate = min(blade01, 0.9999h) * cylinderCount;
+                half cylinderIndex = floor(cylinderCoordinate);
+                half localAcross = frac(cylinderCoordinate) - 0.5h;
+                half lengthSeed = Hash21(half2(cylinderIndex, 9.73h));
+                half widthSeed = Hash21(half2(cylinderIndex, 17.41h));
+                half leanSeed = Hash21(half2(cylinderIndex, 25.83h));
 
-                half maximumReach = 1.0h - (1.0h - fireNoise) * 0.07h * _EdgeRoughness;
-                half tailMask = 1.0h - smoothstep(maximumReach - 0.085h, maximumReach + 0.008h, age);
-                half mask = sideMask * tailMask;
+                // Every cylinder reaches well into the trail. Randomised limits
+                // keep their ends organic, while the cylinder nearest the real
+                // blade tip is guaranteed to be the longest one.
+                half tipWeight = saturate(cylinderIndex / (cylinderCount - 1.0h));
+                half cylinderReach = lerp(0.68h, 0.90h, lengthSeed);
+                cylinderReach = lerp(cylinderReach, 1.0h, pow(tipWeight, 5.0h));
+                half noisyAge = age + (fireNoise - 0.5h) * 0.055h * _EdgeRoughness;
+                half alongCylinder = saturate(noisyAge / max(cylinderReach, 0.05h));
+                half rootWidth = lerp(0.34h, 0.46h, widthSeed);
+                half cylinderWidth = rootWidth * pow(saturate(1.0h - alongCylinder), 0.58h);
+                half sideLean = (leanSeed - 0.5h) * age * 0.22h;
+                half cylinderMask = 1.0h - smoothstep(
+                    cylinderWidth * 0.68h,
+                    cylinderWidth + 0.018h,
+                    abs(localAcross - sideLean));
+                half tailMask = 1.0h - smoothstep(cylinderReach - 0.09h, cylinderReach + 0.012h, noisyAge);
+                half mask = cylinderMask * tailMask;
                 clip(mask - 0.025h);
 
-                half trailingEdge = 1.0h - saturate(abs(age - maximumReach) / 0.14h);
+                half trailingEdge = 1.0h - saturate(abs(noisyAge - cylinderReach) / 0.14h);
                 half brightness = 0.92h + fireNoise * 0.22h + trailingEdge * 0.16h;
                 half alpha = input.color.a * mask * _GlowColor.a;
                 return half4(_GlowColor.rgb * _Intensity * brightness, alpha);
