@@ -205,6 +205,11 @@ namespace Swordplay.Visuals
             if (bladeTipMarker != null)
                 localTip = sourceRenderer.transform.InverseTransformPoint(bladeTipMarker.position);
             int bladeSubmesh = FindBladeSubmesh(sourceMesh, localBase, localTip);
+            // The marker gives us the blade direction, but a curved/asymmetric
+            // sword tip is not necessarily on that direction's centre line. Use
+            // the real furthest mesh vertex so both outline edges meet the actual
+            // pointed apex instead of stopping at an imaginary centre-line tip.
+            localTip = ResolveActualBladeTip(sourceMesh, bladeSubmesh, localBase, localTip);
             EstimateBladeEllipse(
                 sourceMesh,
                 bladeSubmesh,
@@ -387,7 +392,7 @@ namespace Swordplay.Visuals
             if (bladeSubmesh < 0 || bladeMax <= bladeMin) return false;
 
             Vector3 fittedBase = currentBase + axis * bladeMin;
-            Vector3 fittedTip = currentBase + axis * bladeMax;
+            Vector3 fittedTip = ResolveActualBladeTip(mesh, bladeSubmesh, currentBase, currentTip);
             bool changed = Vector3.SqrMagnitude(fittedBase - currentBase) > 0.00000001f
                            || Vector3.SqrMagnitude(fittedTip - currentTip) > 0.00000001f;
             if (!changed) return false;
@@ -449,6 +454,47 @@ namespace Swordplay.Visuals
             return selectedSubmesh;
         }
 
+        private static Vector3 ResolveActualBladeTip(
+            Mesh mesh,
+            int bladeSubmesh,
+            Vector3 bladeBase,
+            Vector3 approximateTip)
+        {
+            Vector3 span = approximateTip - bladeBase;
+            float bladeLength = span.magnitude;
+            if (bladeLength <= 0.0001f) return approximateTip;
+
+            Vector3 axis = span / bladeLength;
+            Vector3[] vertices = mesh.vertices;
+            int[] indices = mesh.GetIndices(bladeSubmesh);
+            float maximumAlong = float.NegativeInfinity;
+            var uniqueIndices = new HashSet<int>();
+            foreach (int vertexIndex in indices)
+            {
+                if (!uniqueIndices.Add(vertexIndex)) continue;
+                maximumAlong = Mathf.Max(maximumAlong, Vector3.Dot(vertices[vertexIndex] - bladeBase, axis));
+            }
+
+            if (!float.IsFinite(maximumAlong)) return approximateTip;
+
+            // Several vertices can share the same apex because the blade has
+            // thickness. Averaging only that tiny furthest slice keeps the true
+            // curved tip position while centring it through the blade thickness.
+            float apexTolerance = Mathf.Max(0.00015f, bladeLength * 0.0015f);
+            Vector3 apexSum = Vector3.zero;
+            int apexCount = 0;
+            foreach (int vertexIndex in uniqueIndices)
+            {
+                Vector3 vertex = vertices[vertexIndex];
+                float along = Vector3.Dot(vertex - bladeBase, axis);
+                if (maximumAlong - along > apexTolerance) continue;
+                apexSum += vertex;
+                apexCount++;
+            }
+
+            return apexCount > 0 ? apexSum / apexCount : bladeBase + axis * maximumAlong;
+        }
+
         private static Mesh CreateBladeOnlyMesh(Mesh source, int bladeSubmesh)
         {
             int[] triangles = source.GetTriangles(bladeSubmesh);
@@ -496,8 +542,11 @@ namespace Swordplay.Visuals
                     Vector3 ribbonNormal = outward;
                     if (i == segments)
                     {
-                        inner = localTip - axis * (auraWidth * 0.04f);
-                        outer = localTip + axis * (auraWidth * 0.42f);
+                        // Collapse both sides into the same real mesh apex. This
+                        // makes one clean point: no extra cap line, no overlapping
+                        // axial quad and no small gap between the outline and tip.
+                        inner = localTip + axis * (auraWidth * 0.06f);
+                        outer = inner;
                         ribbonNormal = axis;
                     }
                     else
@@ -531,7 +580,7 @@ namespace Swordplay.Visuals
                     vertices[vertex + 1] = outer;
                     normals[vertex] = normals[vertex + 1] = ribbonNormal;
                     uv[vertex] = new Vector2(along01, 0f);
-                    uv[vertex + 1] = new Vector2(along01, 1f);
+                    uv[vertex + 1] = new Vector2(along01, i == segments ? 0f : 1f);
                     vertex += 2;
 
                     if (i == 0) continue;
@@ -658,12 +707,16 @@ namespace Swordplay.Visuals
         {
             if (trailMesh == null || sourceRenderer == null) return;
             float now = Time.time;
-            Vector3 bladeBase = bladeStartMarker != null
-                ? bladeStartMarker.position
-                : sourceRenderer.transform.TransformPoint(localBase);
-            Vector3 bladeTip = bladeTipMarker != null
-                ? bladeTipMarker.position
-                : sourceRenderer.transform.TransformPoint(localTip);
+            // Trail only the short rear shoulder of the pointed tip. The full
+            // blade no longer becomes a sheet; one compact tip tongue is pulled
+            // through space and tapers toward the real apex.
+            Vector3 axis = (localTip - localBase).normalized;
+            float bladeLength = Vector3.Distance(localBase, localTip);
+            Vector3 rearTipRoot = localTip
+                                  - axis * (bladeLength * 0.115f)
+                                  - localWideAxis * (bladeWideRadius * 0.55f);
+            Vector3 bladeBase = sourceRenderer.transform.TransformPoint(rearTipRoot);
+            Vector3 bladeTip = sourceRenderer.transform.TransformPoint(localTip);
             float speed = hasPreviousTip
                 ? Vector3.Distance(bladeTip, previousTip) / Mathf.Max(Time.deltaTime, 0.0001f)
                 : 0f;
