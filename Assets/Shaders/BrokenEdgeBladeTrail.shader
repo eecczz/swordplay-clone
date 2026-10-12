@@ -111,13 +111,17 @@ Shader "Swordplay/Broken Edge Blade Trail"
                 half noisyAge = age + (fireNoise - 0.5h) * 0.055h * _EdgeRoughness;
                 half alongCylinder = saturate(noisyAge / max(cylinderReach, 0.05h));
                 half rootWidth = lerp(0.34h, 0.46h, widthSeed);
-                half cylinderWidth = rootWidth * pow(saturate(1.0h - alongCylinder), 0.58h);
+                // Every stretched cylinder narrows continuously toward its own
+                // outermost end. A power above one removes the old rounded cutoff
+                // and makes all nine afterimages finish as individual sharp tips.
+                half taper = pow(saturate(1.0h - alongCylinder), 1.28h);
+                half cylinderWidth = rootWidth * taper;
                 half sideLean = (leanSeed - 0.5h) * age * 0.22h;
                 half cylinderMask = 1.0h - smoothstep(
                     cylinderWidth * 0.68h,
                     cylinderWidth + 0.018h,
                     abs(localAcross - sideLean));
-                half tailMask = 1.0h - smoothstep(cylinderReach - 0.09h, cylinderReach + 0.012h, noisyAge);
+                half tailMask = 1.0h - smoothstep(cylinderReach - 0.045h, cylinderReach + 0.006h, noisyAge);
                 half mask = cylinderMask * tailMask;
                 clip(mask - 0.025h);
 

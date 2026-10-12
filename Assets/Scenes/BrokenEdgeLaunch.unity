@@ -131288,7 +131288,7 @@ Transform:
   m_GameObject: {fileID: 701468331}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.92387956, z: 0, w: 0.38268343}
-  m_LocalPosition: {x: -0.8482385, y: -0.27100274, z: -0.8482452}
+  m_LocalPosition: {x: -0.62779796, y: -0.27100274, z: -0.62780374}
   m_LocalScale: {x: 0.60000014, y: 0.6, z: 0.60000014}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -218658,7 +218658,7 @@ Transform:
   m_GameObject: {fileID: 1146480855}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.92387956, z: 0, w: 0.38268343}
-  m_LocalPosition: {x: 2.2643325, y: -0.27100274, z: 2.2643325}
+  m_LocalPosition: {x: 2.4847736, y: -0.27100274, z: 2.484773}
   m_LocalScale: {x: 0.60000014, y: 0.6, z: 0.60000014}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -226622,7 +226622,7 @@ Transform:
   m_GameObject: {fileID: 1184022893}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.92387956, z: 0, w: 0.38268343}
-  m_LocalPosition: {x: 5.850814, y: -0.27100274, z: 5.8508205}
+  m_LocalPosition: {x: 6.0712547, y: -0.27100274, z: 6.071262}
   m_LocalScale: {x: 0.60000014, y: 0.6, z: 0.60000014}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -249113,7 +249113,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1302442721
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -249724,7 +249724,7 @@ MonoBehaviour:
   AnimationFloorLevel: 0.001
   _Editor_Foldout_Setup_LegsList: 1
   _Editor_EnsureCount: 0
-  _Editor_OnValidateTrigger: 1
+  _Editor_OnValidateTrigger: 0
   _EditorAllowAutoUpdateFeetParams: 1
   _EditorCategory: 0
   _EditorSetupCategory: 2
@@ -249882,8 +249882,8 @@ Transform:
   m_GameObject: {fileID: 1302442720}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.38268343, z: -0, w: 0.92387956}
-  m_LocalPosition: {x: -2.5986693, y: -0.37675974, z: -2.5986693}
-  m_LocalScale: {x: 3, y: 3, z: 3}
+  m_LocalPosition: {x: -5.532922, y: -0.23950648, z: -5.5329223}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 882583958}
@@ -267361,7 +267361,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -303629,7 +303629,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -428674,7 +428674,7 @@ Transform:
   m_GameObject: {fileID: 3904817944928538237}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0.92387956, z: 0, w: 0.38268343}
-  m_LocalPosition: {x: -4.6682386, y: -0.27100244, z: -4.6682386}
+  m_LocalPosition: {x: -4.4477973, y: -0.27100244, z: -4.447798}
   m_LocalScale: {x: 0.6, y: 0.6, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -429176,7 +429176,7 @@ Transform:
   m_GameObject: {fileID: 7558820881546989165}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.38268343, z: -0, w: 0.92387956}
-  m_LocalPosition: {x: -2.1655576, y: -0.37675974, z: -2.1655576}
+  m_LocalPosition: {x: -3.480433, y: -0.37675974, z: -3.4804332}
   m_LocalScale: {x: 3, y: 3, z: 3}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -433365,7 +433365,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &7571644508677807182
 Transform:
   m_ObjectHideFlags: 0
@@ -436514,7 +436514,7 @@ MonoBehaviour:
   AnimationFloorLevel: 0.001
   _Editor_Foldout_Setup_LegsList: 1
   _Editor_EnsureCount: 0
-  _Editor_OnValidateTrigger: 0
+  _Editor_OnValidateTrigger: 1
   _EditorAllowAutoUpdateFeetParams: 1
   _EditorCategory: 0
   _EditorSetupCategory: 1
