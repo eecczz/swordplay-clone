@@ -206,22 +206,19 @@ public class EnemyWorker : MonoBehaviour
         {
             // 주기 리셋
             cool1Timer = cool1Frames / refFps;
-            if (guard == 0)
-            {
-                rtx = Random.Range(-180f, 180f);
-                rty = Random.Range(-30f, 150f);
-            }
-            else
-            {
-                rtx = Mathf.Clamp(rtx, -180f, 180f);
-                rty = Mathf.Clamp(rty, -30f, 150f);
-            }
+            // 준비 자세와 가드 자세 모두 같은 방식으로 새 목표 방향을 선택한다.
+            rtx = Random.Range(-180f, 180f);
+            rty = Random.Range(-30f, 150f);
         }
 
         // -------- cool: 공격 트리거 타이머(초) --------
         if (coolTimer > 0f) coolTimer = Mathf.Max(0f, coolTimer - dt);
 
-        if (coolTimer <= 0f && health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+        if (coolTimer <= 0f
+            && guard == 0
+            && guardTimer <= 0f
+            && health > -1
+            && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
             coolTimer = -1f;
             int r = Random.Range(0, 100);
@@ -288,12 +285,11 @@ public class EnemyWorker : MonoBehaviour
 
                 guard = 1;
                 anim.CrossFade("BlockIdle", 0f, 0);
+                anim.CrossFade("BlockIdle", 0f, 1);
 
                 // 가드 포즈 즉시 보정(프레임 독립)
-                sword.localPosition = new Vector3(sword.localPosition.x + 1f,
-                                                  sword.localPosition.y - 2f,
-                                                  sword.localPosition.z);
-                sword.position += transform.forward; // 월드 전진 1m
+                //sword.localPosition = new Vector3(sword.localPosition.x + 1f, sword.localPosition.y - 2f, sword.localPosition.z);
+                //sword.position += transform.forward; // 월드 전진 1m
             }
         }
 
@@ -303,7 +299,8 @@ public class EnemyWorker : MonoBehaviour
             guardTimer = -1f;
             guard = 0;
             anim.CrossFade("Idle", 0f, 0);
-            sword.localPosition = swordOffset;
+            anim.CrossFade("Idle", 0f, 1);
+            //sword.localPosition = swordOffset;
         }
 
         // -------- 기타 상태 가중치 --------
@@ -396,7 +393,8 @@ public class EnemyWorker : MonoBehaviour
                     {
                         guard = 0;
                         anim.CrossFade("Idle", 0, 0);
-                        sword.localPosition = swordOffset;
+                        anim.CrossFade("Idle", 0, 1);
+                        //sword.localPosition = swordOffset;
                     }
                     health = -1;
                     anim.enabled = false;
