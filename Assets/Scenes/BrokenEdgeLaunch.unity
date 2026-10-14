@@ -12007,13 +12007,19 @@ MonoBehaviour:
   swordOffset: {x: 0, y: 0, z: 0}
   canSwing: 10
   health: 10
+  movementCollisionMask:
+    serializedVersion: 2
+    m_Bits: 4294966331
+  maxStepHeight: 0.45
+  groundSnapDistance: 0.6
+  maxSlopeAngle: 55
+  movementSkin: 0.03
+  gravityMultiplier: 2
+  terminalFallSpeed: 35
   ma: {fileID: 825784541}
   headRotOffset: {x: -180, y: -90, z: 90}
   movementSpeed: 7.5
   camPos: {x: 0, y: 3, z: 7}
-  layermask:
-    serializedVersion: 2
-    m_Bits: 0
   endUI: {fileID: 1004381299}
   header: {fileID: 375720714}
   isGameMode: 1
@@ -124333,13 +124339,19 @@ MonoBehaviour:
   swordOffset: {x: 0, y: 0, z: 0}
   canSwing: 10
   health: 10
+  movementCollisionMask:
+    serializedVersion: 2
+    m_Bits: 4294966331
+  maxStepHeight: 0.45
+  groundSnapDistance: 0.6
+  maxSlopeAngle: 55
+  movementSkin: 0.03
+  gravityMultiplier: 2
+  terminalFallSpeed: 35
   ma: {fileID: 2007285409}
   headRotOffset: {x: -180, y: -270, z: 90}
   movementSpeed: 7.5
   camPos: {x: 0, y: 3, z: 7}
-  layermask:
-    serializedVersion: 2
-    m_Bits: 0
   endUI: {fileID: 1004381299}
   header: {fileID: 375720714}
   isGameMode: 1
@@ -131896,9 +131908,10 @@ MonoBehaviour:
   guardRate: 0
   health: 2
   movementSpeed: 5
-  layermask:
-    serializedVersion: 2
-    m_Bits: 1
+  engagementRadius: 4.5
+  additionalRingSpacing: 2.5
+  slotSampleRadius: 2.5
+  destinationRefreshInterval: 0.12
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -219407,9 +219420,10 @@ MonoBehaviour:
   guardRate: 0
   health: 2
   movementSpeed: 5
-  layermask:
-    serializedVersion: 2
-    m_Bits: 1
+  engagementRadius: 4.5
+  additionalRingSpacing: 2.5
+  slotSampleRadius: 2.5
+  destinationRefreshInterval: 0.12
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -227374,9 +227388,10 @@ MonoBehaviour:
   guardRate: 0
   health: 2
   movementSpeed: 5
-  layermask:
-    serializedVersion: 2
-    m_Bits: 1
+  engagementRadius: 4.5
+  additionalRingSpacing: 2.5
+  slotSampleRadius: 2.5
+  destinationRefreshInterval: 0.12
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -250977,13 +250992,19 @@ MonoBehaviour:
   swordOffset: {x: 0, y: 0, z: 0}
   canSwing: 10
   health: 10
+  movementCollisionMask:
+    serializedVersion: 2
+    m_Bits: 4294966331
+  maxStepHeight: 0.45
+  groundSnapDistance: 0.6
+  maxSlopeAngle: 55
+  movementSkin: 0.03
+  gravityMultiplier: 2
+  terminalFallSpeed: 35
   ma: {fileID: 1272468114}
   headRotOffset: {x: -180, y: -90, z: 90}
   movementSpeed: 7.5
   camPos: {x: 0, y: 3, z: 7}
-  layermask:
-    serializedVersion: 2
-    m_Bits: 0
   endUI: {fileID: 1004381299}
   header: {fileID: 375720714}
   isGameMode: 1
@@ -285559,6 +285580,70 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f55f25ba3de4b294f95933ea6391aa57, type: 3}
+--- !u!1 &1478890786
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1478890788}
+  - component: {fileID: 1478890787}
+  m_Layer: 0
+  m_Name: Gameplay NavMesh
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1478890787
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478890786}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 0
+  m_AgentTypeID: 0
+  m_CollectObjects: 0
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 2, z: 0}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 4294966331
+  m_UseGeometry: 0
+  m_DefaultArea: 0
+  m_GenerateLinks: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 1
+  m_TileSize: 256
+  m_OverrideVoxelSize: 1
+  m_VoxelSize: 0.05
+  m_MinRegionArea: 0.25
+  m_NavMeshData: {fileID: 23800000, guid: 230ab36ce9071d648ae4c77c4726755b, type: 2}
+  m_BuildHeightMesh: 1
+--- !u!4 &1478890788
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478890786}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1479180457
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -423114,7 +423199,7 @@ Transform:
   m_GameObject: {fileID: 3085731112417024144}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.92387956, z: -0, w: 0.38268343}
-  m_LocalPosition: {x: -14.354731, y: -13.487756, z: -3.2194679}
+  m_LocalPosition: {x: -14.354732, y: -13.487756, z: -3.2194674}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -424324,16 +424409,16 @@ NavMeshAgent:
   m_GameObject: {fileID: 3085731112417024144}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 2
+  m_Radius: 0.35
   m_Speed: 3.5
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
-  m_StoppingDistance: 0
+  m_StoppingDistance: 0.25
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
-  m_Height: 7.5
+  m_Height: 1.5
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
@@ -424975,9 +425060,10 @@ MonoBehaviour:
   guardRate: 30
   health: 1000
   movementSpeed: 5
-  layermask:
-    serializedVersion: 2
-    m_Bits: 1
+  engagementRadius: 4.5
+  additionalRingSpacing: 2.5
+  slotSampleRadius: 2.5
+  destinationRefreshInterval: 0.12
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -425005,10 +425091,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 1
-  m_Height: 7.5
+  m_Radius: 0.33333334
+  m_Height: 1.5
   m_Direction: 1
-  m_Center: {x: 0, y: 4, z: 0}
+  m_Center: {x: 0, y: 0.6666667, z: 0}
 --- !u!114 &3085731112417024152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -433087,13 +433173,19 @@ MonoBehaviour:
   swordOffset: {x: 0, y: 0, z: 0}
   canSwing: 10
   health: 10
+  movementCollisionMask:
+    serializedVersion: 2
+    m_Bits: 4294966331
+  maxStepHeight: 0.45
+  groundSnapDistance: 0.6
+  maxSlopeAngle: 55
+  movementSkin: 0.03
+  gravityMultiplier: 2
+  terminalFallSpeed: 35
   ma: {fileID: 1724201841}
   headRotOffset: {x: -180, y: -270, z: 90}
   movementSpeed: 7.5
   camPos: {x: 0, y: 3, z: 7}
-  layermask:
-    serializedVersion: 2
-    m_Bits: 51
   endUI: {fileID: 1004381299}
   header: {fileID: 375720714}
   isGameMode: 1
@@ -436201,7 +436293,7 @@ Transform:
   m_GameObject: {fileID: 7558820881546989165}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.38268343, z: -0, w: 0.92387956}
-  m_LocalPosition: {x: -10.337437, y: -13.487756, z: 0.730451}
+  m_LocalPosition: {x: -10.337437, y: -13.487756, z: 0.73045063}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -438703,7 +438795,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
+  m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -440674,13 +440766,19 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   canSwing: 10
   health: 10
+  movementCollisionMask:
+    serializedVersion: 2
+    m_Bits: 4294966331
+  maxStepHeight: 0.45
+  groundSnapDistance: 0.6
+  maxSlopeAngle: 55
+  movementSkin: 0.03
+  gravityMultiplier: 2
+  terminalFallSpeed: 35
   ma: {fileID: 8260952600315541758}
   headRotOffset: {x: 0, y: 0, z: 0}
   movementSpeed: 7.5
   camPos: {x: 0, y: 3.24, z: 4.1}
-  layermask:
-    serializedVersion: 2
-    m_Bits: 1
   endUI: {fileID: 1004381299}
   header: {fileID: 375720714}
   isGameMode: 1
@@ -440985,13 +441083,19 @@ MonoBehaviour:
   swordOffset: {x: 0, y: 0, z: 0}
   canSwing: 10
   health: 10
+  movementCollisionMask:
+    serializedVersion: 2
+    m_Bits: 4294966331
+  maxStepHeight: 0.45
+  groundSnapDistance: 0.6
+  maxSlopeAngle: 55
+  movementSkin: 0.03
+  gravityMultiplier: 2
+  terminalFallSpeed: 35
   ma: {fileID: 5159621212125529991}
   headRotOffset: {x: -180, y: -90, z: 90}
   movementSpeed: 7.5
   camPos: {x: 0, y: 2, z: 0}
-  layermask:
-    serializedVersion: 2
-    m_Bits: 0
   endUI: {fileID: 1004381299}
   header: {fileID: 375720714}
   isGameMode: 1
@@ -442643,9 +442747,10 @@ MonoBehaviour:
   guardRate: 30
   health: 1000
   movementSpeed: 5
-  layermask:
-    serializedVersion: 2
-    m_Bits: 1
+  engagementRadius: 4.5
+  additionalRingSpacing: 2.5
+  slotSampleRadius: 2.5
+  destinationRefreshInterval: 0.12
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -443971,3 +444076,4 @@ SceneRoots:
   - {fileID: 1335381254}
   - {fileID: 1058154116}
   - {fileID: 1849868939}
+  - {fileID: 1478890788}

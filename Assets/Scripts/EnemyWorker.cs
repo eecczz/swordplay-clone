@@ -1,4 +1,5 @@
 ﻿using FIMSpace.FProceduralAnimation;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Animations.Rigging;
@@ -6,6 +7,9 @@ using UnityEngine.Animations.Rigging;
 [DefaultExecutionOrder(-1000)]
 public class EnemyWorker : MonoBehaviour
 {
+    private static readonly List<EnemyWorker> ActiveEnemies = new();
+    private static readonly Dictionary<EnemyWorker, int> SlotAssignments = new();
+
     private Animator anim;
     private NavMeshAgent nav;
     private Animator playerAnim;
@@ -15,6 +19,7 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] private Vector3 swordOffset;
     private float sensitivity = 0.01f;
     private float tx, ty, rtx, rty;
+    private Vector2 attackDirection;
     private int cool = 100;
     private int cool1 = 100;
     private float guardTime = -1;
@@ -29,8 +34,18 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] private int guardRate = 20;
     [SerializeField] private int health = 2;
     [SerializeField] private float movementSpeed = 5f;
+    [Header("NavMesh pursuit")]
+    [SerializeField] private float engagementRadius = 4.5f;
+    [SerializeField] private float additionalRingSpacing = 2.5f;
+    [SerializeField] private float slotSampleRadius = 2.5f;
+    [SerializeField] private float destinationRefreshInterval = 0.12f;
+    private float destinationRefreshTimer;
+    [SerializeField, Min(0.1f)] private float physicsReactionMinTime = 0.35f;
+    [SerializeField, Min(0.2f)] private float physicsReactionMaxTime = 1.5f;
+    [SerializeField, Min(0.05f)] private float physicsSettleSpeed = 0.5f;
+    private bool physicsReaction;
+    private float physicsReactionTimer;
     private RigBuilder rb;
-    [SerializeField] private LayerMask layermask;
     [SerializeField] private bool miiMotion;
     // ------- 프레임 독립용: 초 단위 타이머로 변환 -------
     [Header("Frame→Seconds 변환(참고 FPS=60 기준)")]
@@ -52,10 +67,51 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] TwoBoneIKConstraint rightArmIK;    // Rig_Hands
     [SerializeField] TwoBoneIKConstraint leftArmIK;     // Rig_Hands
 
+    public Vector2 AttackDirection => attackDirection;
+    public Vector2 GuardDirection => new(tx, ty);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetEnemySlots()
+    {
+        ActiveEnemies.Clear();
+        SlotAssignments.Clear();
+    }
+
+    private void OnEnable()
+    {
+        if (!ActiveEnemies.Contains(this))
+            ActiveEnemies.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        ActiveEnemies.Remove(this);
+        SlotAssignments.Remove(this);
+    }
+
     private void Awake()
     {
         anim = GetComponent<Animator>();
+        if (anim != null)
+            anim.applyRootMotion = false;
+        ConfigurePhysicalRoot();
         RebindHeadConstraints();
+    }
+
+    private void ConfigurePhysicalRoot()
+    {
+        ConfigurableJoint joint = GetComponent<ConfigurableJoint>();
+        if (joint == null)
+            return;
+
+        joint.xMotion = ConfigurableJointMotion.Free;
+        joint.yMotion = ConfigurableJointMotion.Free;
+        joint.zMotion = ConfigurableJointMotion.Free;
+        if (joint.connectedBody != null)
+        {
+            joint.connectedBody.useGravity = false;
+            joint.connectedBody.isKinematic = true;
+        }
     }
 
     private void RebindHeadConstraints()
@@ -88,10 +144,9 @@ public class EnemyWorker : MonoBehaviour
     {
         if (miiMotion)
         {
-            weaponBlend.weight = 0f;
-            rightArmIK.weight = 0f;
-            leftArmIK.weight = 0f;
-            return;
+            if (weaponBlend != null) weaponBlend.weight = 0f;
+            if (rightArmIK != null) rightArmIK.weight = 0f;
+            if (leftArmIK != null) leftArmIK.weight = 0f;
         }
         // 타이머 초기화(초 단위)
         cool1Timer = cool1Frames / refFps; // ≈ 1.67s
@@ -101,7 +156,7 @@ public class EnemyWorker : MonoBehaviour
         // 보간 속도 상수(초당)
         kFast = -refFps * Mathf.Log(0.9f);  // per-frame 0.1과 유사한 반응
         kSlow = -refFps * Mathf.Log(0.99f); // per-frame 0.01과 유사한 반응
-        nav = GetComponent<NavMeshAgent>();
+        nav = ResolveRootAgent();
         hitVFX = Resources.Load<GameObject>($"Prefab/HitVFX");
         shieldVFX = Resources.Load<GameObject>($"Prefab/ShieldVFX");
         audioSource = GetComponent<AudioSource>();
@@ -109,6 +164,26 @@ public class EnemyWorker : MonoBehaviour
             ? PlayerWorker.playerAnimator
             : PlayerWorker.player.GetComponent<Animator>();
         rigid = GetComponent<Rigidbody>();
+        if (nav != null)
+        {
+            nav.speed = movementSpeed;
+            nav.acceleration = Mathf.Max(12f, movementSpeed * 4f);
+            nav.angularSpeed = 0f;
+            nav.updateRotation = false;
+            nav.autoBraking = true;
+            nav.autoRepath = true;
+            nav.autoTraverseOffMeshLink = true;
+            nav.stoppingDistance = 0.25f;
+            nav.avoidancePriority = 20 + GetAssignedSlot() % 70;
+            PlaceAgentOnNavMesh();
+        }
+        if (rigid != null && nav != null)
+        {
+            rigid.isKinematic = true;
+            rigid.useGravity = false;
+            rigid.constraints = RigidbodyConstraints.None;
+            rigid.interpolation = RigidbodyInterpolation.Interpolate;
+        }
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
         rb = GetComponent<RigBuilder>();
@@ -118,6 +193,41 @@ public class EnemyWorker : MonoBehaviour
         rb.Build();
         rightTemp = new GameObject("RightTemp");
         leftTemp = new GameObject("LeftTemp");
+    }
+
+    private NavMeshAgent ResolveRootAgent()
+    {
+        NavMeshAgent rootAgent = GetComponent<NavMeshAgent>();
+        NavMeshAgent[] allAgents = GetComponentsInChildren<NavMeshAgent>(true);
+        NavMeshAgent source = rootAgent;
+        foreach (NavMeshAgent candidate in allAgents)
+        {
+            if (candidate.gameObject != gameObject && source == null)
+                source = candidate;
+        }
+
+        if (rootAgent == null && source != null)
+        {
+            bool sourceWasEnabled = source.enabled;
+            source.enabled = false;
+            rootAgent = gameObject.AddComponent<NavMeshAgent>();
+            rootAgent.agentTypeID = source.agentTypeID;
+            rootAgent.radius = source.radius;
+            rootAgent.height = source.height;
+            rootAgent.baseOffset = source.baseOffset;
+            rootAgent.areaMask = source.areaMask;
+            rootAgent.obstacleAvoidanceType = source.obstacleAvoidanceType;
+            rootAgent.avoidancePriority = source.avoidancePriority;
+            rootAgent.enabled = sourceWasEnabled;
+        }
+
+        foreach (NavMeshAgent candidate in allAgents)
+        {
+            if (candidate != rootAgent)
+                candidate.enabled = false;
+        }
+
+        return rootAgent;
     }
 
     private bool IsPlayerInView()
@@ -131,34 +241,6 @@ public class EnemyWorker : MonoBehaviour
                 return false;
         }
         return (PlayerWorker.player.position - transform.position).magnitude < 10f;
-    }
-
-    private float GetGroundHeight(Vector3 position)
-    {
-        RaycastHit hit;
-
-        // 플레이어 앞에 레이캐스트를 발사하여 바닥을 감지
-        if (Physics.Raycast(position, Vector3.down, out hit))
-        {
-            // 레이캐스트가 바닥과 충돌하면 그 충돌 지점의 y값을 반환
-            return hit.point.y;
-        }
-
-        // 바닥이 감지되지 않으면 현재 위치의 y값을 그대로 반환
-        return position.y;
-    }
-
-    private bool CanMoveToPosition(Vector3 position)
-    {
-        // Raycast를 사용하여 이동할 위치에 벽이 있는지 확인
-        RaycastHit hit;
-        Vector3 direction = position - transform.position;
-
-        // 벽이 있는 경우, 이동하지 않도록 false 반환
-        if (Physics.Raycast(anim.GetBoneTransform(HumanBodyBones.Hips).position, direction, out hit, direction.magnitude + 2.5f, layermask))
-            return false;
-
-        return true; // 벽이 없으면 이동 가능
     }
 
     // Update is called once per frame
@@ -196,7 +278,7 @@ public class EnemyWorker : MonoBehaviour
         }
 
         // 플레이어 방향 회전(공격 중/스턴 아닐 때)
-        if (PlayerWorker.player != null && swing == 0 && health > -1)
+        if (!physicsReaction && PlayerWorker.player != null && swing == 0 && health > -1)
         {
             Vector3 toPlayer = PlayerWorker.player.position - transform.position;
             float yaw = Quaternion.LookRotation(toPlayer).eulerAngles.y;
@@ -212,25 +294,7 @@ public class EnemyWorker : MonoBehaviour
             rb.Build();
         }
 
-        // 이동(거리 조건은 초당 검사)
-        if (health > -1)
-        {
-            bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
-            float dist = (PlayerWorker.player ? (PlayerWorker.player.position - transform.position).magnitude : Mathf.Infinity);
-
-            // 원래 조건 괄호가 모호했음 → 의도대로 괄호 보강
-            if ((!inAttack && PlayerWorker.player == null) || dist <= 4f || dist >= 6f)
-            {
-                Vector3 dir = (dist >= 4f ? transform.forward : -transform.forward);
-                Vector3 targetPos = transform.position + dir * movementSpeed * dt;
-                if (CanMoveToPosition(targetPos))
-                {
-                    anim.SetFloat("mz", dist >= 4f ? 1f : -1f);
-                    float groundY = GetGroundHeight(targetPos + Vector3.up);
-                    transform.position = new Vector3(targetPos.x, Mathf.Lerp(targetPos.y, groundY, 0.1f), targetPos.z);
-                }
-            }
-        }
+        UpdateNavigation(dt);
 
         // -------- cool1: 조준 보정 타이머(초) --------
         if (cool1Timer > 0f)
@@ -280,6 +344,7 @@ public class EnemyWorker : MonoBehaviour
             {
                 if (PlayerWorker.ent && PlayerWorker.ent.transform == transform)
                 {
+                    attackDirection = new Vector2(tx, ty);
                     anim.CrossFade("Attack", 0f, 0);
                     anim.CrossFade("Attack", 0f, 1);
                     ma.weight = 0f;
@@ -374,6 +439,181 @@ public class EnemyWorker : MonoBehaviour
         return f / refFps;
     }
 
+    private int GetAssignedSlot()
+    {
+        if (SlotAssignments.TryGetValue(this, out int assigned))
+            return assigned;
+
+        HashSet<int> occupied = new(SlotAssignments.Values);
+        int slot = 0;
+        float closestDistance = float.PositiveInfinity;
+        int candidateCount = Mathf.Max(8, ActiveEnemies.Count * 2);
+        for (int candidate = 0; candidate < candidateCount; candidate++)
+        {
+            if (occupied.Contains(candidate))
+                continue;
+
+            float distance = PlayerWorker.player == null
+                ? candidate
+                : (CalculateSlotPosition(candidate) - transform.position).sqrMagnitude;
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                slot = candidate;
+            }
+        }
+
+        SlotAssignments[this] = slot;
+        return slot;
+    }
+
+    private void ReleaseSlot()
+    {
+        SlotAssignments.Remove(this);
+        ActiveEnemies.Remove(this);
+    }
+
+    private Vector3 CalculateSlotPosition(int slot)
+    {
+        const int slotsPerRing = 8;
+        int ring = slot / slotsPerRing;
+        int slotInRing = slot % slotsPerRing;
+        float angle = slotInRing * (360f / slotsPerRing) + ring * (180f / slotsPerRing);
+        float radius = engagementRadius + ring * additionalRingSpacing;
+        Vector3 radial = Quaternion.Euler(0f, angle, 0f) * PlayerWorker.player.forward;
+        return PlayerWorker.player.position + radial * radius;
+    }
+
+    private void PlaceAgentOnNavMesh()
+    {
+        if (nav == null || nav.isOnNavMesh)
+            return;
+
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, nav.areaMask))
+            nav.Warp(hit.position);
+    }
+
+    private void UpdateNavigation(float deltaTime)
+    {
+        bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
+        if (health < 0 || nav == null || PlayerWorker.player == null)
+            return;
+
+        if (physicsReaction)
+        {
+            UpdatePhysicsRecovery(deltaTime);
+            return;
+        }
+
+        PlaceAgentOnNavMesh();
+        if (!nav.isOnNavMesh)
+        {
+            anim.SetFloat("mx", 0f);
+            anim.SetFloat("mz", 0f);
+            return;
+        }
+
+        if (inAttack)
+        {
+            nav.isStopped = true;
+            anim.SetFloat("mx", 0f);
+            anim.SetFloat("mz", 0f);
+            return;
+        }
+
+        nav.isStopped = false;
+        destinationRefreshTimer -= deltaTime;
+        if (destinationRefreshTimer <= 0f)
+        {
+            destinationRefreshTimer = destinationRefreshInterval;
+            int slot = GetAssignedSlot();
+            Vector3 requestedSlot = CalculateSlotPosition(slot);
+
+            if (!TrySetReachableDestination(requestedSlot, slotSampleRadius))
+                TrySetReachableDestination(PlayerWorker.player.position, slotSampleRadius * 2f);
+        }
+
+        Vector3 localVelocity = transform.InverseTransformDirection(nav.desiredVelocity);
+        float speed = Mathf.Max(0.01f, nav.speed);
+        anim.SetFloat("mx", Mathf.Clamp(localVelocity.x / speed, -1f, 1f));
+        anim.SetFloat("mz", Mathf.Clamp(localVelocity.z / speed, -1f, 1f));
+
+        if (!nav.pathPending && nav.hasPath
+                && nav.remainingDistance <= nav.stoppingDistance + 0.15f)
+        {
+            nav.isStopped = true;
+            anim.SetFloat("mx", 0f);
+            anim.SetFloat("mz", 0f);
+        }
+    }
+
+    private bool TrySetReachableDestination(Vector3 requestedPosition, float sampleRadius)
+    {
+        if (!NavMesh.SamplePosition(requestedPosition, out NavMeshHit hit, sampleRadius, nav.areaMask))
+            return false;
+
+        NavMeshPath path = new();
+        if (!NavMesh.CalculatePath(nav.nextPosition, hit.position, nav.areaMask, path)
+                || path.status != NavMeshPathStatus.PathComplete)
+            return false;
+
+        return nav.SetPath(path);
+    }
+
+    public void ApplyCombatKnockback(Vector3 displacement)
+    {
+        BeginPhysicsReaction(Vector3.ClampMagnitude(displacement, 3f));
+    }
+
+    private void BeginPhysicsReaction(Vector3 velocityChange)
+    {
+        if (rigid == null || health < 0)
+            return;
+
+        if (!physicsReaction)
+        {
+            if (nav != null && nav.enabled)
+            {
+                if (nav.isOnNavMesh)
+                    nav.ResetPath();
+                nav.enabled = false;
+            }
+            rigid.isKinematic = false;
+            rigid.useGravity = true;
+            physicsReaction = true;
+            physicsReactionTimer = 0f;
+        }
+
+        rigid.AddForce(velocityChange, ForceMode.VelocityChange);
+    }
+
+    private void UpdatePhysicsRecovery(float deltaTime)
+    {
+        physicsReactionTimer += deltaTime;
+        anim.SetFloat("mx", 0f);
+        anim.SetFloat("mz", 0f);
+
+        bool minimumElapsed = physicsReactionTimer >= physicsReactionMinTime;
+        bool settled = rigid.linearVelocity.sqrMagnitude <= physicsSettleSpeed * physicsSettleSpeed;
+        bool timeout = physicsReactionTimer >= physicsReactionMaxTime;
+        if (!minimumElapsed || (!settled && !timeout))
+            return;
+
+        float sampleRadius = timeout ? 5f : 2f;
+        if (!NavMesh.SamplePosition(rigid.position, out NavMeshHit hit, sampleRadius, NavMesh.AllAreas))
+            return;
+
+        rigid.linearVelocity = Vector3.zero;
+        rigid.angularVelocity = Vector3.zero;
+        rigid.position = hit.position;
+        rigid.isKinematic = true;
+        rigid.useGravity = false;
+        nav.enabled = true;
+        nav.Warp(hit.position);
+        physicsReaction = false;
+        destinationRefreshTimer = 0f;
+    }
+
 
     private void LateUpdate()
     {
@@ -426,7 +666,11 @@ public class EnemyWorker : MonoBehaviour
     {
         if (collision.gameObject.layer == 8 && PlayerWorker.player != null && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
         {
-            if (guard == 0)
+            PlayerWorker attacker = PlayerWorker.player.GetComponent<PlayerWorker>();
+            bool blocked = guard == 1
+                           && attacker != null
+                           && CombatDirectionUtility.CanBlock(attacker.AttackDirection, GuardDirection);
+            if (!blocked)
             {
                 if (health > 0)
                 {
@@ -435,6 +679,9 @@ public class EnemyWorker : MonoBehaviour
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
                     anim.CrossFade("Hurted", 0, 0);
+                    Vector3 impactDirection = transform.position - PlayerWorker.player.position;
+                    impactDirection.y = 0.2f;
+                    BeginPhysicsReaction(impactDirection.normalized * 1.5f);
                     GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
                     Destroy(hit, 0.3f);
                     SoundManager.Instance.SFXPlay("Armor Impact 1");
@@ -450,7 +697,9 @@ public class EnemyWorker : MonoBehaviour
                     }
                     health = -1;
                     anim.enabled = false;
-                    nav.enabled = false;
+                    ReleaseSlot();
+                    if (nav != null)
+                        nav.enabled = false;
                     rig.weight = 0;
                     GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
                     Destroy(hit, 0.3f);
@@ -518,12 +767,12 @@ public class EnemyWorker : MonoBehaviour
 
                 }
             }
-            else if (guard == 1)
+            else
             {
                 GameObject shield = Instantiate(shieldVFX, collision.contacts[0].point, Quaternion.LookRotation(transform.forward));
                 Destroy(shield, 0.3f);
                 SoundManager.Instance.SFXPlay("Shield Impact 2");
-                PlayerWorker.player.position -= PlayerWorker.player.forward;
+                attacker.ApplyCombatKnockback(-PlayerWorker.player.forward * 0.75f);
                 if (!playerAnim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
                     playerAnim.CrossFade("Guarded", 0, 0);
             }

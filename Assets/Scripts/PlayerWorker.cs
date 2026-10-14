@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
 using UnityEngine.AI;
+using UnityEngine.Animations.Rigging;
 using FIMSpace.FProceduralAnimation;
 
 public class PlayerWorker : MonoBehaviour
@@ -34,12 +34,33 @@ public class PlayerWorker : MonoBehaviour
     [SerializeField] private int health = 2;
     private RigBuilder rb;
     private AudioSource audioSource;
-    private NavMeshAgent nav;
+    private CapsuleCollider movementCapsule;
+    private Vector2 movementInput;
+    private Vector3 pendingKnockback;
+    private Vector2 attackDirection;
+    [Header("Movement collision")]
+    [SerializeField] private LayerMask movementCollisionMask = ~((1 << 2) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 9));
+    [SerializeField] private float maxStepHeight = 0.45f;
+    [SerializeField] private float groundSnapDistance = 0.3f;
+    [SerializeField, Range(1f, 80f)] private float maxSlopeAngle = 55f;
+    [SerializeField] private float movementSkin = 0.03f;
+    [SerializeField, Min(1f)] private float groundAcceleration = 35f;
+    [SerializeField, Min(1f)] private float airAcceleration = 8f;
+    [SerializeField, Min(0f)] private float knockbackControlDelay = 0.2f;
+    private float knockbackControlTimer;
+    [Header("Joint facing")]
+    [SerializeField, Min(1f)] private float facingAngularSpeed = 180f;
+    [SerializeField, Min(0f)] private float facingSpring = 50f;
+    [SerializeField, Min(0f)] private float facingDamper = 15f;
+    [SerializeField, Min(0f)] private float facingMaxTorque = 250f;
+    private ConfigurableJoint facingJoint;
+    private Rigidbody facingAnchorBody;
+    private Quaternion desiredFacingRotation;
+    private bool hasFacingTarget;
     [SerializeField] private MultiAimConstraint ma;
     [SerializeField] private Vector3 headRotOffset;
     [SerializeField] private float movementSpeed = 5f;
     [SerializeField] private Vector3 camPos;
-    [SerializeField] private LayerMask layermask;
     [SerializeField] private RectTransform endUI;
     [SerializeField] private Text header;
     [SerializeField] private bool isGameMode;
@@ -49,6 +70,9 @@ public class PlayerWorker : MonoBehaviour
     private float preScore;
     private bool isEnd;
     GameObject rightTemp, leftTemp;
+
+    public Vector2 AttackDirection => attackDirection;
+    public Vector2 GuardDirection => new(tx, ty);
 
     /*3d character application
      head's up, forward axis compare and edit animation rigging's head ik
@@ -70,11 +94,23 @@ public class PlayerWorker : MonoBehaviour
         hitVFX = Resources.Load<GameObject>($"Prefab/HitVFX 1");
         shieldVFX = Resources.Load<GameObject>($"Prefab/ShieldVFX");
         rigid = GetComponent<Rigidbody>();
+        movementCapsule = GetComponent<CapsuleCollider>();
+        if (rigid != null)
+        {
+            rigid.interpolation = RigidbodyInterpolation.Interpolate;
+            rigid.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            rigid.constraints = RigidbodyConstraints.None;
+            rigid.useGravity = true;
+            rigid.maxAngularVelocity = 6f;
+            rigid.maxDepenetrationVelocity = 3f;
+        }
+        if (anim != null)
+            anim.applyRootMotion = false;
+        ConfigurePhysicalRoot();
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
         rb = rigBuilderOverride != null ? rigBuilderOverride : GetComponent<RigBuilder>();
         audioSource = GetComponent<AudioSource>();
-        nav = body.GetComponent<NavMeshAgent>();
         preScore = (new Vector3(0, 60) - new Vector3(tx, ty)).magnitude;
         rightTemp = new GameObject("RightTemp");
         leftTemp = new GameObject("LeftTemp");
@@ -170,37 +206,9 @@ public class PlayerWorker : MonoBehaviour
         return false;
     }
 
-    private float GetGroundHeight(Vector3 position)
-    {
-        RaycastHit hit;
-
-        // 플레이어 앞에 레이캐스트를 발사하여 바닥을 감지
-        if (Physics.Raycast(position, Vector3.down, out hit))
-        {
-            // 레이캐스트가 바닥과 충돌하면 그 충돌 지점의 y값을 반환
-            return hit.point.y;
-        }
-
-        // 바닥이 감지되지 않으면 현재 위치의 y값을 그대로 반환
-        return position.y;
-    }
-
-    private bool CanMoveToPosition(Vector3 position)
-    {
-        // Raycast를 사용하여 이동할 위치에 벽이 있는지 확인
-        RaycastHit hit;
-        Vector3 direction = position - transform.position;
-
-        // 벽이 있는 경우, 이동하지 않도록 false 반환
-        if (Physics.Raycast(anim.GetBoneTransform(HumanBodyBones.Hips).position, direction, out hit, direction.magnitude + 2.5f, layermask))
-            return false;
-
-        return true; // 벽이 없으면 이동 가능
-    }
-
     private void Update()
     {
-        body.position = transform.position;
+        movementInput = Vector2.zero;
         //nav.SetDestination(des.transform.position);
         if(swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
@@ -239,19 +247,20 @@ public class PlayerWorker : MonoBehaviour
                 float z = Input.GetAxis("Vertical"); // 수직 입력
                 anim.SetFloat("mx", x);
                 anim.SetFloat("mz", z);
-                Vector3 targetPos = transform.position + Quaternion.Euler(new Vector3(0, transform.rotation.eulerAngles.y, 0)) * new Vector3(x, 0, z) * movementSpeed * Time.deltaTime;
-                if (CanMoveToPosition(targetPos))
-                {
-                    //if(!audioSource.isPlaying && new Vector2(x,z).magnitude > 0 && !isEnd)
-                        //audioSource.PlayOneShot(Resources.Load<AudioClip>($"Audio/SFX/Step"));
-                    // 벽이 없으면 위치 갱신
-                    transform.position = new Vector3(targetPos.x, Mathf.Lerp(targetPos.y, GetGroundHeight(targetPos + Vector3.up), 0.1f), targetPos.z);
-                }
+                movementInput = Vector2.ClampMagnitude(new Vector2(x, z), 1f);
             }
-            if (onTarget && !isEnd)
+            if (onTarget && !isEnd && ent != null)
             {
                 if (swing == 0 && health > -1)
-                    body.rotation = Quaternion.Euler(new Vector3(0, Quaternion.LookRotation(ent.transform.position - body.position).eulerAngles.y, 0));
+                {
+                    Vector3 toEnemy = ent.transform.position - transform.position;
+                    toEnemy.y = 0f;
+                    if (toEnemy.sqrMagnitude > 0.0001f)
+                    {
+                        desiredFacingRotation = Quaternion.LookRotation(toEnemy.normalized, Vector3.up);
+                        hasFacingTarget = true;
+                    }
+                }
             }
         }
         if (!Input.GetMouseButton(1))
@@ -284,6 +293,7 @@ public class PlayerWorker : MonoBehaviour
         preScore = curScore;
         if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded") && goalScore > canSwing && guard == 0 && swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack")) //������
         {
+            attackDirection = new Vector2(tx, ty);
             anim.CrossFade("Attack", 0, 0);
             anim.CrossFade("Attack", 0, 1);
             SoundManager.Instance.SFXPlay("Swing1");
@@ -313,13 +323,19 @@ public class PlayerWorker : MonoBehaviour
                 onTarget = true;
             }
         }
-        if (onTarget)
+        if (onTarget && ent != null)
         {
             if (ent.gameObject.tag != "Enemy" || (ent.transform.position - transform.position).magnitude > 10f)
             {
                 onTarget = false;
             }
         }
+        else if (ent == null)
+        {
+            onTarget = false;
+        }
+        if (!onTarget || ent == null)
+            hasFacingTarget = false;
         Camera.main.transform.position = new Vector3(anim.GetBoneTransform(HumanBodyBones.Hips).position.x, anim.GetBoneTransform(HumanBodyBones.Hips).position.y + camPos.y, anim.GetBoneTransform(HumanBodyBones.Hips).position.z) - transform.forward * camPos.z;
         Camera.main.transform.rotation = Quaternion.Euler(new Vector3(20, transform.rotation.eulerAngles.y, 0));
         /*if (!IsStuffInView())
@@ -353,6 +369,193 @@ public class PlayerWorker : MonoBehaviour
         sources.SetWeight(0, 1f - w); // 오른손 영향
         sources.SetWeight(1, w);      // 왼손 영향
         weaponBlend.data.sourceObjects = sources;
+    }
+
+    private void FixedUpdate()
+    {
+        if (rigid == null)
+            return;
+
+        UpdateFacingAnchor();
+
+        Vector3 localMove = new(movementInput.x, 0f, movementInput.y);
+        Vector3 desiredDirection = Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * localMove;
+        bool grounded = TryGetGround(out RaycastHit groundHit);
+        if (grounded && desiredDirection.sqrMagnitude > 0.0001f)
+            desiredDirection = Vector3.ProjectOnPlane(desiredDirection, groundHit.normal).normalized;
+
+        if (pendingKnockback.sqrMagnitude > 0.0001f)
+        {
+            rigid.AddForce(pendingKnockback, ForceMode.VelocityChange);
+            pendingKnockback = Vector3.zero;
+            knockbackControlTimer = knockbackControlDelay;
+        }
+
+        knockbackControlTimer = Mathf.Max(0f, knockbackControlTimer - Time.fixedDeltaTime);
+        if (knockbackControlTimer <= 0f)
+        {
+            Vector3 velocity = rigid.linearVelocity;
+            Vector3 horizontal = new(velocity.x, 0f, velocity.z);
+            Vector3 targetHorizontal = desiredDirection * movementSpeed;
+            float acceleration = grounded ? groundAcceleration : airAcceleration;
+            horizontal = Vector3.MoveTowards(horizontal, targetHorizontal,
+                acceleration * Time.fixedDeltaTime);
+            rigid.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
+        }
+
+        if (grounded && desiredDirection.sqrMagnitude > 0.0001f)
+            TryStepUp(desiredDirection.normalized);
+    }
+
+    public void ApplyCombatKnockback(Vector3 displacement)
+    {
+        pendingKnockback += Vector3.ClampMagnitude(displacement, 2f);
+    }
+
+    private void ConfigurePhysicalRoot()
+    {
+        facingJoint = GetComponent<ConfigurableJoint>();
+        if (facingJoint != null)
+        {
+            // Keep the joint for upright/impact simulation, but never let it pin the
+            // character to the navigation proxy's original world position.
+            facingJoint.xMotion = ConfigurableJointMotion.Free;
+            facingJoint.yMotion = ConfigurableJointMotion.Free;
+            facingJoint.zMotion = ConfigurableJointMotion.Free;
+            facingJoint.angularXMotion = ConfigurableJointMotion.Free;
+            facingJoint.angularYMotion = ConfigurableJointMotion.Free;
+            facingJoint.angularZMotion = ConfigurableJointMotion.Free;
+            RemoveAngularBounce(facingJoint);
+            ConfigureAngularDrive(facingJoint);
+        }
+
+        foreach (NavMeshAgent childAgent in GetComponentsInChildren<NavMeshAgent>(true))
+            childAgent.enabled = false;
+
+        if (body != null && body.TryGetComponent(out Rigidbody balanceBody))
+        {
+            balanceBody.useGravity = false;
+            balanceBody.isKinematic = true;
+        }
+
+        if (facingJoint == null || rigid == null)
+            return;
+
+        GameObject anchorObject = new($"{name} Facing Anchor");
+        anchorObject.transform.SetPositionAndRotation(rigid.position, rigid.rotation);
+        facingAnchorBody = anchorObject.AddComponent<Rigidbody>();
+        facingAnchorBody.useGravity = false;
+        facingAnchorBody.isKinematic = true;
+        facingAnchorBody.interpolation = RigidbodyInterpolation.Interpolate;
+        facingJoint.connectedBody = facingAnchorBody;
+        desiredFacingRotation = rigid.rotation;
+    }
+
+    private void UpdateFacingAnchor()
+    {
+        if (facingAnchorBody == null)
+            return;
+
+        facingAnchorBody.MovePosition(rigid.position);
+        Quaternion target = hasFacingTarget ? desiredFacingRotation : facingAnchorBody.rotation;
+        Quaternion next = Quaternion.RotateTowards(facingAnchorBody.rotation, target,
+            facingAngularSpeed * Time.fixedDeltaTime);
+        facingAnchorBody.MoveRotation(next);
+    }
+
+    private void ConfigureAngularDrive(ConfigurableJoint joint)
+    {
+        joint.rotationDriveMode = RotationDriveMode.Slerp;
+        JointDrive slerpDrive = joint.slerpDrive;
+        slerpDrive.positionSpring = facingSpring;
+        slerpDrive.positionDamper = facingDamper;
+        slerpDrive.maximumForce = facingMaxTorque;
+        joint.slerpDrive = slerpDrive;
+    }
+
+    private static void RemoveAngularBounce(ConfigurableJoint joint)
+    {
+        SoftJointLimit lowX = joint.lowAngularXLimit;
+        lowX.bounciness = 0f;
+        lowX.contactDistance = 1f;
+        joint.lowAngularXLimit = lowX;
+
+        SoftJointLimit highX = joint.highAngularXLimit;
+        highX.bounciness = 0f;
+        highX.contactDistance = 1f;
+        joint.highAngularXLimit = highX;
+
+        SoftJointLimit y = joint.angularYLimit;
+        y.bounciness = 0f;
+        y.contactDistance = 1f;
+        joint.angularYLimit = y;
+
+        SoftJointLimit z = joint.angularZLimit;
+        z.bounciness = 0f;
+        z.contactDistance = 1f;
+        joint.angularZLimit = z;
+    }
+
+    private void OnDestroy()
+    {
+        if (facingAnchorBody != null)
+            Destroy(facingAnchorBody.gameObject);
+    }
+
+    private bool TryGetGround(out RaycastHit ground)
+    {
+        if (movementCapsule == null)
+        {
+            ground = default;
+            return false;
+        }
+
+        GetWorldCapsule(rigid.position, out _, out Vector3 bottom, out float radius);
+        Vector3 origin = bottom + Vector3.up * 0.04f;
+        if (!Physics.SphereCast(origin, radius * 0.85f, Vector3.down, out ground,
+                groundSnapDistance + 0.08f, movementCollisionMask, QueryTriggerInteraction.Ignore))
+            return false;
+
+        return Vector3.Angle(ground.normal, Vector3.up) <= maxSlopeAngle;
+    }
+
+    private void TryStepUp(Vector3 direction)
+    {
+        GetWorldCapsule(rigid.position, out _, out Vector3 bottom, out float radius);
+        float checkDistance = radius + movementSpeed * Time.fixedDeltaTime;
+        Vector3 lowOrigin = bottom + Vector3.up * 0.05f;
+        if (!Physics.Raycast(lowOrigin, direction, out _, checkDistance,
+                movementCollisionMask, QueryTriggerInteraction.Ignore))
+            return;
+
+        Vector3 highOrigin = lowOrigin + Vector3.up * (maxStepHeight + 0.05f);
+        if (Physics.Raycast(highOrigin, direction, checkDistance,
+                movementCollisionMask, QueryTriggerInteraction.Ignore))
+            return;
+
+        Vector3 downOrigin = highOrigin + direction * checkDistance;
+        if (!Physics.Raycast(downOrigin, Vector3.down, out RaycastHit step,
+                maxStepHeight + 0.1f, movementCollisionMask, QueryTriggerInteraction.Ignore))
+            return;
+        if (Vector3.Angle(step.normal, Vector3.up) > maxSlopeAngle)
+            return;
+
+        float currentBottom = bottom.y - radius;
+        float stepHeight = step.point.y - currentBottom;
+        if (stepHeight > 0.02f && stepHeight <= maxStepHeight)
+            rigid.MovePosition(rigid.position + Vector3.up * (stepHeight + movementSkin));
+    }
+
+    private void GetWorldCapsule(Vector3 rootPosition, out Vector3 top, out Vector3 bottom, out float radius)
+    {
+        Vector3 scale = transform.lossyScale;
+        radius = movementCapsule.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+        float height = Mathf.Max(movementCapsule.height * Mathf.Abs(scale.y), radius * 2f);
+        Vector3 center = transform.TransformPoint(movementCapsule.center) + (rootPosition - transform.position);
+        float segment = height * 0.5f - radius;
+        top = center + transform.up * segment;
+        bottom = center - transform.up * segment;
+        radius = Mathf.Max(0.01f, radius - movementSkin);
     }
 
     [Header("Rig refs")]
@@ -422,7 +625,11 @@ public class PlayerWorker : MonoBehaviour
     {
         if (collision.gameObject.layer == 9 && ent && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
         {
-            if (guard == 0)
+            EnemyWorker attacker = collision.transform.GetComponentInParent<EnemyWorker>();
+            bool blocked = guard == 1
+                           && attacker != null
+                           && CombatDirectionUtility.CanBlock(attacker.AttackDirection, GuardDirection);
+            if (!blocked)
             {
                 if (health > 0)
                 {
@@ -431,6 +638,9 @@ public class PlayerWorker : MonoBehaviour
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
                     anim.CrossFade("Hurted", 0, 0);
+                    Vector3 impactDirection = transform.position - collision.transform.position;
+                    impactDirection.y = 0.2f;
+                    ApplyCombatKnockback(impactDirection.normalized * 1.5f);
                     GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
                     Destroy(hit, 0.3f);
                     SoundManager.Instance.SFXPlay("Shield Impact 1");
@@ -447,7 +657,6 @@ public class PlayerWorker : MonoBehaviour
                     }
                     health = -1;
                     anim.enabled = false;
-                    nav.enabled = false;
                     rig.weight = 0;
                     GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
                     Destroy(hit, 0.3f);
@@ -516,12 +725,12 @@ public class PlayerWorker : MonoBehaviour
                     }
                 }
             }
-            else if (guard == 1)
+            else
             {
                 GameObject shield = Instantiate(shieldVFX, collision.contacts[0].point, Quaternion.LookRotation(transform.forward));
                 Destroy(shield, 0.3f);
                 SoundManager.Instance.SFXPlay("Shield Impact 2");
-                ent.transform.position -= ent.transform.forward;
+                attacker.ApplyCombatKnockback(-attacker.transform.forward * 0.75f);
                 if (!entAnim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
                     entAnim.CrossFade("Guarded", 0, 0);
             }
