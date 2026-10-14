@@ -12014,8 +12014,11 @@ MonoBehaviour:
   groundSnapDistance: 0.6
   maxSlopeAngle: 55
   movementSkin: 0.03
-  gravityMultiplier: 2
-  terminalFallSpeed: 35
+  groundAcceleration: 35
+  airAcceleration: 8
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
+  knockbackStopSpeed: 0.15
   ma: {fileID: 825784541}
   headRotOffset: {x: -180, y: -90, z: 90}
   movementSpeed: 7.5
@@ -118986,7 +118989,7 @@ Transform:
   m_GameObject: {fileID: 634426256}
   serializedVersion: 2
   m_LocalRotation: {x: -0.6242053, y: -0.6504055, z: -0.29407093, w: -0.31758904}
-  m_LocalPosition: {x: 5.4862933, y: 4.436836, z: 1.6283646}
+  m_LocalPosition: {x: 1.084, y: 1.634, z: 0.396}
   m_LocalScale: {x: 0.56065524, y: 2.485251, z: 1.6222018}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -119012,7 +119015,7 @@ MonoBehaviour:
   tipExtension: 0.01
   broadsideOutlineScale: 1
   thicknessOutlineScale: 0.18
-  glowColor: {r: 0.03, g: 1.5, b: 2.5, a: 0.94}
+  glowColor: {r: 0.78431374, g: 0.68235296, b: 0.2784314, a: 0.9411765}
   coreColor: {r: 0.9, g: 1.15, b: 1.25, a: 0.82}
   auraWidth: 0.034
   auraIntensity: 1.4
@@ -119046,10 +119049,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.25
-  m_Height: 2
+  m_Radius: 0.1
+  m_Height: 0.5
   m_Direction: 1
-  m_Center: {x: -9.923616e-21, y: -0.25, z: -0.00000011920935}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &634426260
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -124346,8 +124349,11 @@ MonoBehaviour:
   groundSnapDistance: 0.6
   maxSlopeAngle: 55
   movementSkin: 0.03
-  gravityMultiplier: 2
-  terminalFallSpeed: 35
+  groundAcceleration: 35
+  airAcceleration: 8
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
+  knockbackStopSpeed: 0.15
   ma: {fileID: 2007285409}
   headRotOffset: {x: -180, y: -270, z: 90}
   movementSpeed: 7.5
@@ -131912,6 +131918,11 @@ MonoBehaviour:
   additionalRingSpacing: 2.5
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  physicsReactionMinTime: 0.35
+  physicsReactionMaxTime: 1.5
+  physicsSettleSpeed: 0.5
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -208527,7 +208538,6 @@ Transform:
   - {fileID: 1458800577}
   - {fileID: 693819086}
   - {fileID: 1009113932}
-  - {fileID: 1656106192}
   - {fileID: 2071867326}
   m_Father: {fileID: 3085731112416920816}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -219424,6 +219434,11 @@ MonoBehaviour:
   additionalRingSpacing: 2.5
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  physicsReactionMinTime: 0.35
+  physicsReactionMaxTime: 1.5
+  physicsSettleSpeed: 0.5
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -227392,6 +227407,11 @@ MonoBehaviour:
   additionalRingSpacing: 2.5
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  physicsReactionMinTime: 0.35
+  physicsReactionMaxTime: 1.5
+  physicsSettleSpeed: 0.5
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -250999,8 +251019,11 @@ MonoBehaviour:
   groundSnapDistance: 0.6
   maxSlopeAngle: 55
   movementSkin: 0.03
-  gravityMultiplier: 2
-  terminalFallSpeed: 35
+  groundAcceleration: 35
+  airAcceleration: 8
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
+  knockbackStopSpeed: 0.15
   ma: {fileID: 1272468114}
   headRotOffset: {x: -180, y: -90, z: 90}
   movementSpeed: 7.5
@@ -318645,62 +318668,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7343460019661986311, guid: 57ab62712b5e43541a9f2a12a4e06d6e, type: 3}
   m_PrefabInstance: {fileID: 1655451989}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1656106191
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1656106192}
-  - component: {fileID: 1656106193}
-  m_Layer: 7
-  m_Name: HandLayer
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!4 &1656106192
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1656106191}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1095903478}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1656106193
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1656106191}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aeda7bfbf984f2a4da5ab4b8967b115d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Weight: 0
-  m_Data:
-    m_Root: {fileID: 2708697438598499427}
-    m_Mid: {fileID: 5359493550670507507}
-    m_Tip: {fileID: 2315363988035569656}
-    m_Target: {fileID: 0}
-    m_Hint: {fileID: 0}
-    m_TargetPositionWeight: 1
-    m_TargetRotationWeight: 1
-    m_HintWeight: 1
-    m_MaintainTargetPositionOffset: 0
-    m_MaintainTargetRotationOffset: 0
 --- !u!1 &1656136405
 GameObject:
   m_ObjectHideFlags: 0
@@ -339074,7 +339041,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1751903585}
-  m_Layer: 6
+  m_Layer: 7
   m_Name: HeadOffset
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -359329,7 +359296,7 @@ Transform:
   m_GameObject: {fileID: 1849868938}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0.38268343, z: 0, w: 0.92387956}
-  m_LocalPosition: {x: 7.85, y: 13.248249, z: 9.61}
+  m_LocalPosition: {x: 7.85, y: 7.72, z: 9.61}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -401467,7 +401434,7 @@ MonoBehaviour:
       m_Length: 1
       m_Item0:
         transform: {fileID: 1867692026947594341}
-        weight: 0
+        weight: 1
       m_Item1:
         transform: {fileID: 0}
         weight: 0
@@ -419097,7 +419064,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 4
+  m_Constraints: 112
   m_CollisionDetection: 0
 --- !u!1 &329646608121199096
 GameObject:
@@ -421786,7 +421753,7 @@ Transform:
   m_GameObject: {fileID: 5758353703570286114}
   serializedVersion: 2
   m_LocalRotation: {x: -0.6242053, y: -0.6504055, z: -0.29407093, w: -0.31758904}
-  m_LocalPosition: {x: 5.4862933, y: 4.436836, z: 1.6283646}
+  m_LocalPosition: {x: 1.084, y: 1.634, z: 0.396}
   m_LocalScale: {x: 0.56065524, y: 2.485251, z: 1.6222018}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -422187,9 +422154,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6679150470881170943}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.13304313, y: -0.01669061, z: 0.028657956, w: 0.9905552}
-  m_LocalPosition: {x: 0.0019996713, y: 1.8643163, z: -0.106054515}
-  m_LocalScale: {x: 8.33333, y: 8.333341, z: 8.3333435}
+  m_LocalRotation: {x: 0.13304321, y: -0.01669061, z: 0.02865811, w: 0.9905553}
+  m_LocalPosition: {x: 0.001998689, y: 1.8643184, z: -0.10605421}
+  m_LocalScale: {x: 8.33332, y: 8.333352, z: 8.33337}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4335305778296860235}
@@ -423072,7 +423039,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0.0092618195, y: 0.06580231, z: 0.99778897, w: 0.0011933263}
   m_LocalPosition: {x: 0.014483566, y: -0.0053138197, z: 0.090058275}
-  m_LocalScale: {x: 1.0000004, y: 1.0000004, z: 1.0000001}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3085731112416920926}
@@ -423089,7 +423056,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0.06580402, y: 0.009263509, z: -0.0011933204, w: 0.99778885}
   m_LocalPosition: {x: 0.014485778, y: -0.0053138244, z: -0.090057954}
-  m_LocalScale: {x: 1.0000001, y: 1.0000002, z: 0.9999998}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3085731112416920920}
@@ -423199,7 +423166,7 @@ Transform:
   m_GameObject: {fileID: 3085731112417024144}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.92387956, z: -0, w: 0.38268343}
-  m_LocalPosition: {x: -14.354732, y: -13.487756, z: -3.2194674}
+  m_LocalPosition: {x: -10.050428, y: -7.959507, z: 1.0581654}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -424273,7 +424240,6 @@ GameObject:
   - component: {fileID: 3085731112417024149}
   - component: {fileID: 3085731112417024148}
   - component: {fileID: 3085731112417024147}
-  - component: {fileID: 3085731112417024145}
   m_Layer: 7
   m_Name: WM_Master_Unity_Bow2
   m_TagString: Enemy
@@ -424281,108 +424247,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!153 &3085731112417024145
-ConfigurableJoint:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3085731112417024144}
-  serializedVersion: 4
-  m_ConnectedBody: {fileID: 1309435056}
-  m_ConnectedArticulationBody: {fileID: 0}
-  m_Anchor: {x: 0, y: 0, z: 0}
-  m_Axis: {x: 1, y: 0, z: 0}
-  m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 0, y: -5.1666636, z: 64.29957}
-  m_SecondaryAxis: {x: 0, y: 1, z: 0}
-  m_XMotion: 2
-  m_YMotion: 2
-  m_ZMotion: 2
-  m_AngularXMotion: 1
-  m_AngularYMotion: 2
-  m_AngularZMotion: 1
-  m_LinearLimitSpring:
-    spring: 0
-    damper: 0
-  m_LinearLimit:
-    limit: 0
-    bounciness: 0
-    contactDistance: 0
-  m_AngularXLimitSpring:
-    spring: 0
-    damper: 0
-  m_LowAngularXLimit:
-    limit: 0
-    bounciness: 1
-    contactDistance: 30
-  m_HighAngularXLimit:
-    limit: 0
-    bounciness: 1
-    contactDistance: 30
-  m_AngularYZLimitSpring:
-    spring: 0
-    damper: 0
-  m_AngularYLimit:
-    limit: 0
-    bounciness: 0
-    contactDistance: 0
-  m_AngularZLimit:
-    limit: 0
-    bounciness: 0
-    contactDistance: 30
-  m_TargetPosition: {x: 0, y: 0, z: 0}
-  m_TargetVelocity: {x: 0, y: 0, z: 0}
-  m_XDrive:
-    serializedVersion: 4
-    positionSpring: 0
-    positionDamper: 0
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_YDrive:
-    serializedVersion: 4
-    positionSpring: 0
-    positionDamper: 0
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_ZDrive:
-    serializedVersion: 4
-    positionSpring: 0
-    positionDamper: 0
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_TargetRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_TargetAngularVelocity: {x: 0, y: 0, z: 0}
-  m_RotationDriveMode: 0
-  m_AngularXDrive:
-    serializedVersion: 4
-    positionSpring: 50
-    positionDamper: 12.5
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_AngularYZDrive:
-    serializedVersion: 4
-    positionSpring: 50
-    positionDamper: 12.5
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_SlerpDrive:
-    serializedVersion: 4
-    positionSpring: 0
-    positionDamper: 0
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_ProjectionMode: 0
-  m_ProjectionDistance: 0.1
-  m_ProjectionAngle: 180
-  m_ConfiguredInWorldSpace: 0
-  m_SwapBodies: 0
-  m_BreakForce: Infinity
-  m_BreakTorque: Infinity
-  m_EnableCollision: 0
-  m_EnablePreprocessing: 1
-  m_MassScale: 1
-  m_ConnectedMassScale: 1
 --- !u!1 &3085731112417024146
 GameObject:
   m_ObjectHideFlags: 0
@@ -424891,7 +424755,7 @@ MonoBehaviour:
   AnimationFloorLevel: 0.001
   _Editor_Foldout_Setup_LegsList: 1
   _Editor_EnsureCount: 0
-  _Editor_OnValidateTrigger: 1
+  _Editor_OnValidateTrigger: 0
   _EditorAllowAutoUpdateFeetParams: 1
   _EditorCategory: 0
   _EditorSetupCategory: 0
@@ -424912,7 +424776,7 @@ MonoBehaviour:
   baseTransform: {fileID: 0}
   Hips: {fileID: 3085731112416920836}
   ScaleReferenceMode: 3
-  finalScaleReference: 2.1126695
+  finalScaleReference: 2.3399909
   finalScaleReferenceSqrt: 0.1
   customScaleReferenceValue: 0.5
   DelayedInitialization: 0
@@ -425056,7 +424920,7 @@ MonoBehaviour:
   sword: {fileID: 2099966537}
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   ma: {fileID: 2071867328}
-  headRotOffset: {x: 0, y: 0, z: 0}
+  headRotOffset: {x: -180, y: -90, z: 90}
   guardRate: 30
   health: 1000
   movementSpeed: 5
@@ -425064,6 +424928,11 @@ MonoBehaviour:
   additionalRingSpacing: 2.5
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  physicsReactionMinTime: 0.35
+  physicsReactionMaxTime: 1.5
+  physicsSettleSpeed: 0.5
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -425136,7 +425005,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 112
   m_CollisionDetection: 1
 --- !u!1 &3085731112417024192
 GameObject:
@@ -433180,8 +433049,11 @@ MonoBehaviour:
   groundSnapDistance: 0.6
   maxSlopeAngle: 55
   movementSkin: 0.03
-  gravityMultiplier: 2
-  terminalFallSpeed: 35
+  groundAcceleration: 35
+  airAcceleration: 8
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
+  knockbackStopSpeed: 0.15
   ma: {fileID: 1724201841}
   headRotOffset: {x: -180, y: -270, z: 90}
   movementSpeed: 7.5
@@ -436293,7 +436165,7 @@ Transform:
   m_GameObject: {fileID: 7558820881546989165}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.38268343, z: -0, w: 0.92387956}
-  m_LocalPosition: {x: -10.337437, y: -13.487756, z: 0.73045063}
+  m_LocalPosition: {x: -14.641741, y: -7.9595065, z: -3.547183}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -436635,10 +436507,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 2
-  m_Height: 2
+  m_Radius: 0.1
+  m_Height: 0.5
   m_Direction: 1
-  m_Center: {x: -9.923616e-21, y: -0.25, z: -0.00000011920935}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!4 &4777335698482744324
 Transform:
   m_ObjectHideFlags: 0
@@ -438795,7 +438667,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -440474,7 +440346,6 @@ GameObject:
   - component: {fileID: 3722357534448970540}
   - component: {fileID: 8892957113984338047}
   - component: {fileID: 290962713830425537}
-  - component: {fileID: 8878716879246529712}
   - component: {fileID: 8892957113984338048}
   m_Layer: 6
   m_Name: FPSMesh - Model_Unity_Ver1
@@ -440773,8 +440644,11 @@ MonoBehaviour:
   groundSnapDistance: 0.6
   maxSlopeAngle: 55
   movementSkin: 0.03
-  gravityMultiplier: 2
-  terminalFallSpeed: 35
+  groundAcceleration: 35
+  airAcceleration: 8
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
+  knockbackStopSpeed: 0.15
   ma: {fileID: 8260952600315541758}
   headRotOffset: {x: 0, y: 0, z: 0}
   movementSpeed: 7.5
@@ -440874,9 +440748,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2878215919711964221}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.16789667, y: -0.088946395, z: 0.048835732, w: 0.9805684}
-  m_LocalPosition: {x: 0.011733234, y: 1.57, z: -0.11}
-  m_LocalScale: {x: 8.333319, y: 8.333353, z: 8.333366}
+  m_LocalRotation: {x: 0.16789666, y: -0.08894643, z: 0.04883583, w: 0.9805684}
+  m_LocalPosition: {x: 0.011733003, y: 1.5700011, z: -0.10999991}
+  m_LocalScale: {x: 8.333319, y: 8.333353, z: 8.333369}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8020438249370545786}
@@ -441085,13 +440959,16 @@ MonoBehaviour:
   health: 10
   movementCollisionMask:
     serializedVersion: 2
-    m_Bits: 4294966331
+    m_Bits: 51
   maxStepHeight: 0.45
   groundSnapDistance: 0.6
   maxSlopeAngle: 55
   movementSkin: 0.03
-  gravityMultiplier: 2
-  terminalFallSpeed: 35
+  groundAcceleration: 35
+  airAcceleration: 8
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
+  knockbackStopSpeed: 0.15
   ma: {fileID: 5159621212125529991}
   headRotOffset: {x: -180, y: -90, z: 90}
   movementSpeed: 7.5
@@ -442751,6 +442628,11 @@ MonoBehaviour:
   additionalRingSpacing: 2.5
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  physicsReactionMinTime: 0.35
+  physicsReactionMaxTime: 1.5
+  physicsSettleSpeed: 0.5
+  facingLerpSpeed: 10
+  knockbackSlideDamping: 6
   miiMotion: 0
   refFps: 60
   cool1Frames: 100
@@ -443076,108 +442958,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 9192405491178674560}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!153 &8878716879246529712
-ConfigurableJoint:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7558820881546989165}
-  serializedVersion: 4
-  m_ConnectedBody: {fileID: 8223799312639940932}
-  m_ConnectedArticulationBody: {fileID: 0}
-  m_Anchor: {x: 0, y: 0, z: 0}
-  m_Axis: {x: 1, y: 0, z: 0}
-  m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_SecondaryAxis: {x: 0, y: 1, z: 0}
-  m_XMotion: 2
-  m_YMotion: 2
-  m_ZMotion: 2
-  m_AngularXMotion: 1
-  m_AngularYMotion: 1
-  m_AngularZMotion: 1
-  m_LinearLimitSpring:
-    spring: 0
-    damper: 0
-  m_LinearLimit:
-    limit: 0
-    bounciness: 0
-    contactDistance: 0
-  m_AngularXLimitSpring:
-    spring: 0
-    damper: 0
-  m_LowAngularXLimit:
-    limit: 0
-    bounciness: 1
-    contactDistance: 30
-  m_HighAngularXLimit:
-    limit: 0
-    bounciness: 1
-    contactDistance: 30
-  m_AngularYZLimitSpring:
-    spring: 0
-    damper: 0
-  m_AngularYLimit:
-    limit: 0
-    bounciness: 0
-    contactDistance: 0
-  m_AngularZLimit:
-    limit: 0
-    bounciness: 0
-    contactDistance: 30
-  m_TargetPosition: {x: 0, y: 0, z: 0}
-  m_TargetVelocity: {x: 0, y: 0, z: 0}
-  m_XDrive:
-    serializedVersion: 4
-    positionSpring: 0
-    positionDamper: 0
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_YDrive:
-    serializedVersion: 4
-    positionSpring: 0
-    positionDamper: 0
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_ZDrive:
-    serializedVersion: 4
-    positionSpring: 0
-    positionDamper: 0
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_TargetRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_TargetAngularVelocity: {x: 0, y: 0, z: 0}
-  m_RotationDriveMode: 0
-  m_AngularXDrive:
-    serializedVersion: 4
-    positionSpring: 50
-    positionDamper: 12.5
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_AngularYZDrive:
-    serializedVersion: 4
-    positionSpring: 50
-    positionDamper: 12.5
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_SlerpDrive:
-    serializedVersion: 4
-    positionSpring: 0
-    positionDamper: 0
-    maximumForce: 3.4028233e+38
-    useAcceleration: 0
-  m_ProjectionMode: 0
-  m_ProjectionDistance: 0.1
-  m_ProjectionAngle: 180
-  m_ConfiguredInWorldSpace: 0
-  m_SwapBodies: 0
-  m_BreakForce: Infinity
-  m_BreakTorque: Infinity
-  m_EnableCollision: 0
-  m_EnablePreprocessing: 1
-  m_MassScale: 1
-  m_ConnectedMassScale: 1
 --- !u!114 &8892957113984338047
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -443185,7 +442965,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7558820881546989165}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f3505aa6d98bd4418e0744d5ab56fdd, type: 3}
   m_Name: 
@@ -443647,7 +443427,7 @@ MonoBehaviour:
   AnimationFloorLevel: 0.001
   _Editor_Foldout_Setup_LegsList: 1
   _Editor_EnsureCount: 0
-  _Editor_OnValidateTrigger: 1
+  _Editor_OnValidateTrigger: 0
   _EditorAllowAutoUpdateFeetParams: 1
   _EditorCategory: 0
   _EditorSetupCategory: 0

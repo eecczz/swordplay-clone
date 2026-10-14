@@ -43,6 +43,8 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField, Min(0.1f)] private float physicsReactionMinTime = 0.35f;
     [SerializeField, Min(0.2f)] private float physicsReactionMaxTime = 1.5f;
     [SerializeField, Min(0.05f)] private float physicsSettleSpeed = 0.5f;
+    [SerializeField, Min(0.1f)] private float facingLerpSpeed = 10f;
+    [SerializeField, Min(0.1f)] private float knockbackSlideDamping = 6f;
     private bool physicsReaction;
     private float physicsReactionTimer;
     private RigBuilder rb;
@@ -91,27 +93,14 @@ public class EnemyWorker : MonoBehaviour
 
     private void Awake()
     {
+        ConfigurableJoint legacyRootJoint = GetComponent<ConfigurableJoint>();
+        if (legacyRootJoint != null)
+            Destroy(legacyRootJoint);
+
         anim = GetComponent<Animator>();
         if (anim != null)
             anim.applyRootMotion = false;
-        ConfigurePhysicalRoot();
         RebindHeadConstraints();
-    }
-
-    private void ConfigurePhysicalRoot()
-    {
-        ConfigurableJoint joint = GetComponent<ConfigurableJoint>();
-        if (joint == null)
-            return;
-
-        joint.xMotion = ConfigurableJointMotion.Free;
-        joint.yMotion = ConfigurableJointMotion.Free;
-        joint.zMotion = ConfigurableJointMotion.Free;
-        if (joint.connectedBody != null)
-        {
-            joint.connectedBody.useGravity = false;
-            joint.connectedBody.isKinematic = true;
-        }
     }
 
     private void RebindHeadConstraints()
@@ -181,8 +170,9 @@ public class EnemyWorker : MonoBehaviour
         {
             rigid.isKinematic = true;
             rigid.useGravity = false;
-            rigid.constraints = RigidbodyConstraints.None;
+            rigid.constraints = RigidbodyConstraints.FreezeRotation;
             rigid.interpolation = RigidbodyInterpolation.Interpolate;
+            rigid.angularVelocity = Vector3.zero;
         }
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
@@ -281,8 +271,13 @@ public class EnemyWorker : MonoBehaviour
         if (!physicsReaction && PlayerWorker.player != null && swing == 0 && health > -1)
         {
             Vector3 toPlayer = PlayerWorker.player.position - transform.position;
-            float yaw = Quaternion.LookRotation(toPlayer).eulerAngles.y;
-            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            toPlayer.y = 0f;
+            if (toPlayer.sqrMagnitude > 0.0001f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(toPlayer.normalized, Vector3.up);
+                float facingT = 1f - Mathf.Exp(-facingLerpSpeed * dt);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, facingT);
+            }
         }
 
         // ma 소스 재지정(플레이어 없을 때)
@@ -414,11 +409,6 @@ public class EnemyWorker : MonoBehaviour
         // -------- 기타 상태 가중치 --------
         if (health > -1)
         {
-            if (anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
-                rig.weight = 0f;
-            else
-                rig.weight = 1f;
-
             legAnim.UseGluing = !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
         }
         if (miiMotion) return;
@@ -480,7 +470,10 @@ public class EnemyWorker : MonoBehaviour
         int slotInRing = slot % slotsPerRing;
         float angle = slotInRing * (360f / slotsPerRing) + ring * (180f / slotsPerRing);
         float radius = engagementRadius + ring * additionalRingSpacing;
-        Vector3 radial = Quaternion.Euler(0f, angle, 0f) * PlayerWorker.player.forward;
+        // The formation translates with the player, but it must not rotate with the
+        // player's facing. Otherwise player facing moves every enemy destination,
+        // producing a feedback loop where both sides orbit forever.
+        Vector3 radial = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
         return PlayerWorker.player.position + radial * radius;
     }
 
@@ -562,6 +555,7 @@ public class EnemyWorker : MonoBehaviour
 
     public void ApplyCombatKnockback(Vector3 displacement)
     {
+        displacement.y = 0f;
         BeginPhysicsReaction(Vector3.ClampMagnitude(displacement, 3f));
     }
 
@@ -569,6 +563,8 @@ public class EnemyWorker : MonoBehaviour
     {
         if (rigid == null || health < 0)
             return;
+
+        velocityChange.y = 0f;
 
         if (!physicsReaction)
         {
@@ -580,10 +576,14 @@ public class EnemyWorker : MonoBehaviour
             }
             rigid.isKinematic = false;
             rigid.useGravity = true;
+            rigid.constraints = RigidbodyConstraints.FreezeRotation;
+            rigid.angularVelocity = Vector3.zero;
             physicsReaction = true;
             physicsReactionTimer = 0f;
         }
 
+        Vector3 currentVelocity = rigid.linearVelocity;
+        rigid.linearVelocity = new Vector3(currentVelocity.x, Mathf.Min(currentVelocity.y, 0f), currentVelocity.z);
         rigid.AddForce(velocityChange, ForceMode.VelocityChange);
     }
 
@@ -593,8 +593,13 @@ public class EnemyWorker : MonoBehaviour
         anim.SetFloat("mx", 0f);
         anim.SetFloat("mz", 0f);
 
+        Vector3 velocity = rigid.linearVelocity;
+        Vector3 horizontalVelocity = new(velocity.x, 0f, velocity.z);
+        horizontalVelocity *= Mathf.Exp(-knockbackSlideDamping * deltaTime);
+        rigid.linearVelocity = new Vector3(horizontalVelocity.x, Mathf.Min(velocity.y, 0f), horizontalVelocity.z);
+
         bool minimumElapsed = physicsReactionTimer >= physicsReactionMinTime;
-        bool settled = rigid.linearVelocity.sqrMagnitude <= physicsSettleSpeed * physicsSettleSpeed;
+        bool settled = horizontalVelocity.sqrMagnitude <= physicsSettleSpeed * physicsSettleSpeed;
         bool timeout = physicsReactionTimer >= physicsReactionMaxTime;
         if (!minimumElapsed || (!settled && !timeout))
             return;
@@ -704,7 +709,6 @@ public class EnemyWorker : MonoBehaviour
                     GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
                     Destroy(hit, 0.3f);
                     Destroy(legAnim);
-                    Destroy(GetComponent<ConfigurableJoint>());
                     Destroy(GetComponent<Collider>());
                     Destroy(rigid);
                     SoundManager.Instance.SFXPlay("Armor Impact 1");

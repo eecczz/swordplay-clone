@@ -46,17 +46,13 @@ public class PlayerWorker : MonoBehaviour
     [SerializeField] private float movementSkin = 0.03f;
     [SerializeField, Min(1f)] private float groundAcceleration = 35f;
     [SerializeField, Min(1f)] private float airAcceleration = 8f;
-    [SerializeField, Min(0f)] private float knockbackControlDelay = 0.2f;
-    private float knockbackControlTimer;
-    [Header("Joint facing")]
-    [SerializeField, Min(1f)] private float facingAngularSpeed = 180f;
-    [SerializeField, Min(0f)] private float facingSpring = 50f;
-    [SerializeField, Min(0f)] private float facingDamper = 15f;
-    [SerializeField, Min(0f)] private float facingMaxTorque = 250f;
-    private ConfigurableJoint facingJoint;
-    private Rigidbody facingAnchorBody;
+    [Header("Facing and knockback")]
+    [SerializeField, Min(0.1f)] private float facingLerpSpeed = 10f;
+    [SerializeField, Min(0.1f)] private float knockbackSlideDamping = 6f;
+    [SerializeField, Min(0.01f)] private float knockbackStopSpeed = 0.15f;
     private Quaternion desiredFacingRotation;
     private bool hasFacingTarget;
+    private bool knockbackSliding;
     [SerializeField] private MultiAimConstraint ma;
     [SerializeField] private Vector3 headRotOffset;
     [SerializeField] private float movementSpeed = 5f;
@@ -81,6 +77,10 @@ public class PlayerWorker : MonoBehaviour
      add components, legs animator - ik hint mode -> onGoal*/
     private void Awake()
     {
+        ConfigurableJoint legacyRootJoint = GetComponent<ConfigurableJoint>();
+        if (legacyRootJoint != null)
+            Destroy(legacyRootJoint);
+
         player = transform;
         Time.timeScale = 1.0f;
         endUI.gameObject.SetActive(false);
@@ -99,10 +99,10 @@ public class PlayerWorker : MonoBehaviour
         {
             rigid.interpolation = RigidbodyInterpolation.Interpolate;
             rigid.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            rigid.constraints = RigidbodyConstraints.None;
+            rigid.constraints = RigidbodyConstraints.FreezeRotation;
             rigid.useGravity = true;
-            rigid.maxAngularVelocity = 6f;
             rigid.maxDepenetrationVelocity = 3f;
+            rigid.angularVelocity = Vector3.zero;
         }
         if (anim != null)
             anim.applyRootMotion = false;
@@ -336,8 +336,8 @@ public class PlayerWorker : MonoBehaviour
         }
         if (!onTarget || ent == null)
             hasFacingTarget = false;
-        Camera.main.transform.position = new Vector3(anim.GetBoneTransform(HumanBodyBones.Hips).position.x, anim.GetBoneTransform(HumanBodyBones.Hips).position.y + camPos.y, anim.GetBoneTransform(HumanBodyBones.Hips).position.z) - transform.forward * camPos.z;
-        Camera.main.transform.rotation = Quaternion.Euler(new Vector3(20, transform.rotation.eulerAngles.y, 0));
+        Camera.main.transform.position = new Vector3(anim.GetBoneTransform(HumanBodyBones.Spine).position.x, anim.GetBoneTransform(HumanBodyBones.Hips).position.y + camPos.y, anim.GetBoneTransform(HumanBodyBones.Spine).position.z) - transform.forward * camPos.z;
+        //Camera.main.transform.rotation = Quaternion.Euler(new Vector3(20, transform.rotation.eulerAngles.y, 0));
         /*if (!IsStuffInView())
         {
             Camera.main.transform.localPosition = camPos + Vector3.up * anim.GetBoneTransform(HumanBodyBones.Hips).localPosition.y;
@@ -349,17 +349,6 @@ public class PlayerWorker : MonoBehaviour
             Camera.main.transform.position -=  Quaternion.Euler(new Vector3(0, transform.rotation.eulerAngles.y, 0)) * Vector3.forward * camDis.magnitude * 0.75f;
             Camera.main.transform.localRotation = Quaternion.Euler(new Vector3(20, 0, 0));
         }*/
-        if (health > -1)
-        {
-            if (anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
-            {
-                rig.weight = 0;
-            }
-            else
-            {
-                rig.weight = 1;
-            }
-        }
         if (miiMotion) return;
 
         float w = Mathf.Clamp01((180f + tx) / 360f);
@@ -376,7 +365,7 @@ public class PlayerWorker : MonoBehaviour
         if (rigid == null)
             return;
 
-        UpdateFacingAnchor();
+        UpdateFacingRotation();
 
         Vector3 localMove = new(movementInput.x, 0f, movementInput.y);
         Vector3 desiredDirection = Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * localMove;
@@ -386,15 +375,28 @@ public class PlayerWorker : MonoBehaviour
 
         if (pendingKnockback.sqrMagnitude > 0.0001f)
         {
-            rigid.AddForce(pendingKnockback, ForceMode.VelocityChange);
+            pendingKnockback.y = 0f;
+            Vector3 currentVelocity = rigid.linearVelocity;
+            rigid.linearVelocity = new Vector3(currentVelocity.x + pendingKnockback.x,
+                Mathf.Min(currentVelocity.y, 0f), currentVelocity.z + pendingKnockback.z);
             pendingKnockback = Vector3.zero;
-            knockbackControlTimer = knockbackControlDelay;
+            knockbackSliding = true;
         }
 
-        knockbackControlTimer = Mathf.Max(0f, knockbackControlTimer - Time.fixedDeltaTime);
-        if (knockbackControlTimer <= 0f)
+        Vector3 velocity = rigid.linearVelocity;
+        if (knockbackSliding)
         {
-            Vector3 velocity = rigid.linearVelocity;
+            Vector3 horizontal = new(velocity.x, 0f, velocity.z);
+            horizontal *= Mathf.Exp(-knockbackSlideDamping * Time.fixedDeltaTime);
+            if (horizontal.sqrMagnitude <= knockbackStopSpeed * knockbackStopSpeed)
+            {
+                horizontal = Vector3.zero;
+                knockbackSliding = false;
+            }
+            rigid.linearVelocity = new Vector3(horizontal.x, Mathf.Min(velocity.y, 0f), horizontal.z);
+        }
+        else
+        {
             Vector3 horizontal = new(velocity.x, 0f, velocity.z);
             Vector3 targetHorizontal = desiredDirection * movementSpeed;
             float acceleration = grounded ? groundAcceleration : airAcceleration;
@@ -409,26 +411,12 @@ public class PlayerWorker : MonoBehaviour
 
     public void ApplyCombatKnockback(Vector3 displacement)
     {
+        displacement.y = 0f;
         pendingKnockback += Vector3.ClampMagnitude(displacement, 2f);
     }
 
     private void ConfigurePhysicalRoot()
     {
-        facingJoint = GetComponent<ConfigurableJoint>();
-        if (facingJoint != null)
-        {
-            // Keep the joint for upright/impact simulation, but never let it pin the
-            // character to the navigation proxy's original world position.
-            facingJoint.xMotion = ConfigurableJointMotion.Free;
-            facingJoint.yMotion = ConfigurableJointMotion.Free;
-            facingJoint.zMotion = ConfigurableJointMotion.Free;
-            facingJoint.angularXMotion = ConfigurableJointMotion.Free;
-            facingJoint.angularYMotion = ConfigurableJointMotion.Free;
-            facingJoint.angularZMotion = ConfigurableJointMotion.Free;
-            RemoveAngularBounce(facingJoint);
-            ConfigureAngularDrive(facingJoint);
-        }
-
         foreach (NavMeshAgent childAgent in GetComponentsInChildren<NavMeshAgent>(true))
             childAgent.enabled = false;
 
@@ -437,69 +425,16 @@ public class PlayerWorker : MonoBehaviour
             balanceBody.useGravity = false;
             balanceBody.isKinematic = true;
         }
+    }
 
-        if (facingJoint == null || rigid == null)
+    private void UpdateFacingRotation()
+    {
+        if (!hasFacingTarget)
             return;
 
-        GameObject anchorObject = new($"{name} Facing Anchor");
-        anchorObject.transform.SetPositionAndRotation(rigid.position, rigid.rotation);
-        facingAnchorBody = anchorObject.AddComponent<Rigidbody>();
-        facingAnchorBody.useGravity = false;
-        facingAnchorBody.isKinematic = true;
-        facingAnchorBody.interpolation = RigidbodyInterpolation.Interpolate;
-        facingJoint.connectedBody = facingAnchorBody;
-        desiredFacingRotation = rigid.rotation;
-    }
-
-    private void UpdateFacingAnchor()
-    {
-        if (facingAnchorBody == null)
-            return;
-
-        facingAnchorBody.MovePosition(rigid.position);
-        Quaternion target = hasFacingTarget ? desiredFacingRotation : facingAnchorBody.rotation;
-        Quaternion next = Quaternion.RotateTowards(facingAnchorBody.rotation, target,
-            facingAngularSpeed * Time.fixedDeltaTime);
-        facingAnchorBody.MoveRotation(next);
-    }
-
-    private void ConfigureAngularDrive(ConfigurableJoint joint)
-    {
-        joint.rotationDriveMode = RotationDriveMode.Slerp;
-        JointDrive slerpDrive = joint.slerpDrive;
-        slerpDrive.positionSpring = facingSpring;
-        slerpDrive.positionDamper = facingDamper;
-        slerpDrive.maximumForce = facingMaxTorque;
-        joint.slerpDrive = slerpDrive;
-    }
-
-    private static void RemoveAngularBounce(ConfigurableJoint joint)
-    {
-        SoftJointLimit lowX = joint.lowAngularXLimit;
-        lowX.bounciness = 0f;
-        lowX.contactDistance = 1f;
-        joint.lowAngularXLimit = lowX;
-
-        SoftJointLimit highX = joint.highAngularXLimit;
-        highX.bounciness = 0f;
-        highX.contactDistance = 1f;
-        joint.highAngularXLimit = highX;
-
-        SoftJointLimit y = joint.angularYLimit;
-        y.bounciness = 0f;
-        y.contactDistance = 1f;
-        joint.angularYLimit = y;
-
-        SoftJointLimit z = joint.angularZLimit;
-        z.bounciness = 0f;
-        z.contactDistance = 1f;
-        joint.angularZLimit = z;
-    }
-
-    private void OnDestroy()
-    {
-        if (facingAnchorBody != null)
-            Destroy(facingAnchorBody.gameObject);
+        float t = 1f - Mathf.Exp(-facingLerpSpeed * Time.fixedDeltaTime);
+        rigid.MoveRotation(Quaternion.Slerp(rigid.rotation, desiredFacingRotation, t));
+        rigid.angularVelocity = Vector3.zero;
     }
 
     private bool TryGetGround(out RaycastHit ground)
@@ -661,7 +596,6 @@ public class PlayerWorker : MonoBehaviour
                     GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
                     Destroy(hit, 0.3f);
                     Destroy(legAnim);
-                    Destroy(GetComponent<ConfigurableJoint>());
                     Destroy(GetComponent<Collider>());
                     Destroy(rigid);
                     SoundManager.Instance.SFXPlay("Shield Impact 1");
