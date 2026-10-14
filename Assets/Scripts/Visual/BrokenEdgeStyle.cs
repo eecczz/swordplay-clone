@@ -128,12 +128,10 @@ namespace Swordplay.Visuals
             ConfigureSun();
             ConfigureCameras();
             ConfigureGeneratedEnvironment();
-            // Scene-view materials are installed as persistent texture-preserving
-            // variants by the editor installer. Keep transient replacements for
-            // runtime-spawned objects only, so an editor domain reload can never
-            // leave authored renderer slots pointing at destroyed materials.
-            if (applyTexturedToonShader && Application.isPlaying) ConfigureTexturedMaterials();
-            else RestoreTexturedMaterials();
+            // Authored renderers use persistent texture-preserving materials installed
+            // in the scene. Do not rescan every renderer or allocate replacement
+            // materials when play mode starts.
+            RestoreTexturedMaterials();
             if (centerFightersOnEnable) CenterFighters();
         }
 

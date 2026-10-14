@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Animations.Rigging;
 
+[DefaultExecutionOrder(-1000)]
 public class EnemyWorker : MonoBehaviour
 {
     private Animator anim;
@@ -30,7 +31,7 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] private float movementSpeed = 5f;
     private RigBuilder rb;
     [SerializeField] private LayerMask layermask;
-    [SerializeField] private bool symmetricMotion;
+    [SerializeField] private bool miiMotion;
     // ------- 프레임 독립용: 초 단위 타이머로 변환 -------
     [Header("Frame→Seconds 변환(참고 FPS=60 기준)")]
     [SerializeField] float refFps = 60f;
@@ -46,9 +47,52 @@ public class EnemyWorker : MonoBehaviour
     float kSlow, kFast;
     GameObject rightTemp, leftTemp;
 
+    [Header("Rig refs")]
+    [SerializeField] MultiParentConstraint weaponBlend; // Rig_Weapon에 붙은 컴포넌트
+    [SerializeField] TwoBoneIKConstraint rightArmIK;    // Rig_Hands
+    [SerializeField] TwoBoneIKConstraint leftArmIK;     // Rig_Hands
+
+    private void Awake()
+    {
+        anim = GetComponent<Animator>();
+        RebindHeadConstraints();
+    }
+
+    private void RebindHeadConstraints()
+    {
+        if (anim == null || ma == null)
+            return;
+
+        Transform head = anim.GetBoneTransform(HumanBodyBones.Head);
+        if (head == null)
+            return;
+
+        MultiAimConstraintData aimData = ma.data;
+        aimData.constrainedObject = head;
+        ma.data = aimData;
+
+        // HeadLayer에는 시선용 MultiAim과 위치 추종용 MultiParent가 같이 있다.
+        // 복제된 적에서 두 constraint가 다른 캐릭터의 Head를 참조하면
+        // RigBuilder 전체 빌드가 실패해 무기 블렌드와 양손 IK도 모두 멈춘다.
+        MultiParentConstraint headParent = ma.GetComponent<MultiParentConstraint>();
+        if (headParent != null)
+        {
+            MultiParentConstraintData parentData = headParent.data;
+            parentData.constrainedObject = head;
+            headParent.data = parentData;
+        }
+    }
+
     // Start is called before the first frame update
     private void Start()
     {
+        if (miiMotion)
+        {
+            weaponBlend.weight = 0f;
+            rightArmIK.weight = 0f;
+            leftArmIK.weight = 0f;
+            return;
+        }
         // 타이머 초기화(초 단위)
         cool1Timer = cool1Frames / refFps; // ≈ 1.67s
         coolTimer = 0f;
@@ -57,7 +101,6 @@ public class EnemyWorker : MonoBehaviour
         // 보간 속도 상수(초당)
         kFast = -refFps * Mathf.Log(0.9f);  // per-frame 0.1과 유사한 반응
         kSlow = -refFps * Mathf.Log(0.99f); // per-frame 0.01과 유사한 반응
-        anim = GetComponent<Animator>();
         nav = GetComponent<NavMeshAgent>();
         hitVFX = Resources.Load<GameObject>($"Prefab/HitVFX");
         shieldVFX = Resources.Load<GameObject>($"Prefab/ShieldVFX");
@@ -69,7 +112,7 @@ public class EnemyWorker : MonoBehaviour
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
         rb = GetComponent<RigBuilder>();
-        var data = GetComponentInChildren<MultiAimConstraint>().data.sourceObjects;
+        var data = ma.data.sourceObjects;
         data.SetTransform(0, playerAnim.GetBoneTransform(HumanBodyBones.Head));
         ma.data.sourceObjects = data;
         rb.Build();
@@ -313,6 +356,15 @@ public class EnemyWorker : MonoBehaviour
 
             legAnim.UseGluing = !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
         }
+        if (miiMotion) return;
+
+        float w = Mathf.Clamp01((180f + tx) / 360f);
+
+        // Source 0 = RightSocket, Source 1 = LeftSocket 라고 가정
+        var sources = weaponBlend.data.sourceObjects;   // WeightedTransformArray (값 타입 취급 주의)
+        sources.SetWeight(0, 1f - w); // 오른손 영향
+        sources.SetWeight(1, w);      // 왼손 영향
+        weaponBlend.data.sourceObjects = sources;
     }
 
     // === 유틸 ===
@@ -329,7 +381,7 @@ public class EnemyWorker : MonoBehaviour
         {
             anim.GetBoneTransform(HumanBodyBones.Head).rotation = Quaternion.Euler(headRotOffset + new Vector3(0, transform.rotation.eulerAngles.y, 0));
         }
-        if (symmetricMotion)
+        if (miiMotion)
         {
             float weight = Mathf.Clamp01((180 + tx) / 360f);
             Vector3 tmp = anim.GetBoneTransform(HumanBodyBones.RightHand).position;
