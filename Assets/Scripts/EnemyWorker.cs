@@ -460,8 +460,8 @@ public class EnemyWorker : MonoBehaviour
                 {
                     attackDirection = new Vector2(tx, ty);
                     attackSequence++;
-                    anim.CrossFade("Attack", 0.25f, 0);
-                    anim.CrossFade("Attack", 0.25f, 1);
+                    anim.CrossFadeInFixedTime("Attack", 0.25f, 0);
+                    anim.CrossFadeInFixedTime("Attack", 0.25f, 1);
                     ma.weight = 0f;
                     swing = 1;
 
@@ -506,8 +506,8 @@ public class EnemyWorker : MonoBehaviour
                 rty = Mathf.Clamp(rty, -30f, 150f);
 
                 guard = 1;
-                anim.CrossFade("BlockIdle", 0.25f, 0);
-                anim.CrossFade("BlockIdle", 0.25f, 1);
+                anim.CrossFadeInFixedTime("BlockIdle", 0.25f, 0);
+                anim.CrossFadeInFixedTime("BlockIdle", 0.25f, 1);
 
                 // 가드 포즈 즉시 보정(프레임 독립)
                 //sword.localPosition = new Vector3(sword.localPosition.x + 1f, sword.localPosition.y - 2f, sword.localPosition.z);
@@ -520,8 +520,8 @@ public class EnemyWorker : MonoBehaviour
             coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
             guardTimer = -1f;
             guard = 0;
-            anim.CrossFade("Idle", 0.25f, 0);
-            anim.CrossFade("Idle", 0.25f, 1);
+            anim.CrossFadeInFixedTime("Idle", 0.25f, 0);
+            anim.CrossFadeInFixedTime("Idle", 0.25f, 1);
             //sword.localPosition = swordOffset;
         }
 
@@ -923,7 +923,7 @@ public class EnemyWorker : MonoBehaviour
                     Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
-                    anim.CrossFade("Hurted", 0.25f, 0);
+                    anim.CrossFadeInFixedTime("Hurted", 0.25f, 0);
                     Vector3 impactDirection = transform.position - PlayerWorker.player.position;
                     impactDirection.y = 0f;
                     ApplyCombatKnockback(impactDirection);
@@ -935,8 +935,8 @@ public class EnemyWorker : MonoBehaviour
                     if (guard == 1)
                     {
                         guard = 0;
-                        anim.CrossFade("Idle", 0.25f, 0);
-                        anim.CrossFade("Idle", 0.25f, 1);
+                        anim.CrossFadeInFixedTime("Idle", 0.25f, 0);
+                        anim.CrossFadeInFixedTime("Idle", 0.25f, 1);
                         //sword.localPosition = swordOffset;
                     }
                     health = -1;
@@ -1024,7 +1024,7 @@ public class EnemyWorker : MonoBehaviour
                     reboundDirection = -transform.forward;
                 attacker.ApplyCombatKnockback(reboundDirection);
                 if (!playerAnim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                    playerAnim.CrossFade("Guarded", 0.25f, 0);
+                    playerAnim.CrossFadeInFixedTime("Guarded", 0.25f, 0);
             }
         }
     }

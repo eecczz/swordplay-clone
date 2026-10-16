@@ -285,8 +285,8 @@ public class PlayerWorker : MonoBehaviour
             if (guard == 1)
             {
                 guard = 0;
-                anim.CrossFade("Idle", 0.25f, 0);
-                anim.CrossFade("Idle", 0.25f, 1);
+                anim.CrossFadeInFixedTime("Idle", 0.25f, 0);
+                anim.CrossFadeInFixedTime("Idle", 0.25f, 1);
                 //sword.localPosition = swordOffset;//new Vector3(-0.38f, 0.514f, -0.027f);
             }
         }
@@ -295,8 +295,8 @@ public class PlayerWorker : MonoBehaviour
             if (guard == 0)
             {
                 guard = 1;
-                anim.CrossFade("BlockIdle", 0.25f, 0);
-                anim.CrossFade("BlockIdle", 0.25f, 1);
+                anim.CrossFadeInFixedTime("BlockIdle", 0.25f, 0);
+                anim.CrossFadeInFixedTime("BlockIdle", 0.25f, 1);
                 //sword.localPosition = new Vector3(sword.localPosition.x + 1, sword.localPosition.y - 2, sword.localPosition.z);
                 //sword.position += transform.forward;
                 SoundManager.Instance.SFXPlay("Shield");
@@ -312,8 +312,8 @@ public class PlayerWorker : MonoBehaviour
         {
             attackDirection = new Vector2(tx, ty);
             attackSequence++;
-            anim.CrossFade("Attack", 0.25f, 0);
-            anim.CrossFade("Attack", 0.25f, 1);
+            anim.CrossFadeInFixedTime("Attack", 0.25f, 0);
+            anim.CrossFadeInFixedTime("Attack", 0.25f, 1);
             SoundManager.Instance.SFXPlay("Swing1");
             ma.weight = 0;
         }
@@ -593,7 +593,7 @@ public class PlayerWorker : MonoBehaviour
                     Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
-                    anim.CrossFade("Hurted", 0.25f, 0);
+                    anim.CrossFadeInFixedTime("Hurted", 0.25f, 0);
                     Vector3 impactDirection = transform.position - attacker.transform.position;
                     impactDirection.y = 0f;
                     ApplyCombatKnockback(impactDirection.normalized * 1.5f);
@@ -607,7 +607,7 @@ public class PlayerWorker : MonoBehaviour
                         guard = 0;
                         //sword.localPosition = swordOffset;//new Vector3(-0.38f, 0.514f, -0.027f);
                         //sword.position -= transform.forward;
-                        anim.CrossFade("Idle", 0.25f, 0);
+                        anim.CrossFadeInFixedTime("Idle", 0.25f, 0);
                     }
                     health = -1;
                     anim.enabled = false;
@@ -694,7 +694,7 @@ public class PlayerWorker : MonoBehaviour
                 Animator attackerAnimator = attacker.GetComponent<Animator>();
                 if (attackerAnimator != null
                     && !attackerAnimator.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                    attackerAnimator.CrossFade("Guarded", 0.25f, 0);
+                    attackerAnimator.CrossFadeInFixedTime("Guarded", 0.25f, 0);
             }
         }
     }
