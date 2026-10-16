@@ -169,8 +169,6 @@ Shader "Swordplay/Broken Edge Textured Surface"
                 Light mainLight = GetMainLight(input.shadowCoord);
                 half ndotl = saturate(dot(normalWS, mainLight.direction));
 
-                // Neutral dungeon stone receives a deliberate pastel art direction,
-                // while already-coloured wood, moss, cloth and props keep their hue.
                 half sourceMax = max(sampleColor.r, max(sampleColor.g, sampleColor.b));
                 half sourceMin = min(sampleColor.r, min(sampleColor.g, sampleColor.b));
                 half neutralMask = 1.0h - smoothstep(0.06h, 0.22h, sourceMax - sourceMin);
@@ -193,9 +191,6 @@ Shader "Swordplay/Broken Edge Textured Surface"
                 color += _RimColor.rgb * rim;
                 color += PaperNoise(input.positionWS) * _PaperStrength;
 
-                // Pick out authored cracks, boards and masonry seams like ink laid over
-                // a painted cel.  The texture remains untouched; only strong local
-                // boundaries receive the pencil colour.
                 float2 texel = _BaseMap_TexelSize.xy * 1.35h;
                 half3 texLeft = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv - float2(texel.x, 0)).rgb;
                 half3 texRight = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv + float2(texel.x, 0)).rgb;

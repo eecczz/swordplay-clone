@@ -39,6 +39,7 @@ namespace Swordplay.Visuals
         [Header("Generated arena")]
         [SerializeField] private Shader arenaShader;
         [SerializeField] private Shader skyShader;
+        [SerializeField] private Material skyMaterial;
         [SerializeField, Min(4f)] private float arenaRadius = 14f;
         [SerializeField] private bool centerFightersOnEnable = true;
 
@@ -368,6 +369,14 @@ namespace Swordplay.Visuals
 
         private void ConfigureSky()
         {
+            // Prefer the persistent scene asset. A Shader.Find-only material can be stripped
+            // from a standalone build because neither the scene nor GraphicsSettings owns it.
+            if (skyMaterial != null)
+            {
+                RenderSettings.skybox = skyMaterial;
+                return;
+            }
+
             Shader shader = skyShader != null ? skyShader : Shader.Find("Swordplay/Broken Edge Sky");
             if (shader == null) return;
             if (generatedSkyMaterial == null || generatedSkyMaterial.shader != shader)

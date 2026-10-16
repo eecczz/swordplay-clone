@@ -5,6 +5,7 @@ using UnityEngine.AI;
 using UnityEngine.Animations.Rigging;
 
 [DefaultExecutionOrder(-1000)]
+[RequireComponent(typeof(CharacterController))]
 public class EnemyWorker : MonoBehaviour
 {
     private static readonly List<EnemyWorker> ActiveEnemies = new();
@@ -20,6 +21,10 @@ public class EnemyWorker : MonoBehaviour
     private float sensitivity = 0.01f;
     private float tx, ty, rtx, rty;
     private Vector2 attackDirection;
+    private int attackSequence;
+    [Header("Attack hit detection")]
+    [SerializeField, Range(0f, 1f)] private float attackHitStart = 0f;
+    [SerializeField, Range(0f, 1.2f)] private float attackHitEnd = 1.05f;
     private int cool = 100;
     private int cool1 = 100;
     private float guardTime = -1;
@@ -27,10 +32,14 @@ public class EnemyWorker : MonoBehaviour
     private GameObject hitVFX, shieldVFX;
     private AudioSource audioSource;
     private Rigidbody rigid;
+    private CapsuleCollider movementCapsule;
+    private CharacterController characterController;
+    private float verticalVelocity;
     private Rig rig;
     private LegsAnimator legAnim;
     [SerializeField] private MultiAimConstraint ma;
     [SerializeField] private Vector3 headRotOffset;
+    [SerializeField] private bool headOffsetIsRootLocal;
     [SerializeField] private int guardRate = 20;
     [SerializeField] private int health = 2;
     [SerializeField] private float movementSpeed = 5f;
@@ -40,15 +49,22 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] private float slotSampleRadius = 2.5f;
     [SerializeField] private float destinationRefreshInterval = 0.12f;
     private float destinationRefreshTimer;
-    [SerializeField, Min(0.1f)] private float physicsReactionMinTime = 0.35f;
-    [SerializeField, Min(0.2f)] private float physicsReactionMaxTime = 1.5f;
-    [SerializeField, Min(0.05f)] private float physicsSettleSpeed = 0.5f;
+    private Vector3 directPursuitTarget;
+    private bool useDirectPursuit;
+    private Vector3 previousNavPosition;
+    private float navStuckTimer;
+    [SerializeField, Min(0.2f)] private float knockbackMaxTime = 1.5f;
+    [SerializeField, Min(0.01f)] private float knockbackStopSpeed = 0.15f;
+    [SerializeField, Min(0.5f)] private float knockbackDistance = 5f;
     [SerializeField, Min(0.1f)] private float facingLerpSpeed = 10f;
     [SerializeField, Min(0.1f)] private float knockbackSlideDamping = 6f;
     private bool physicsReaction;
     private float physicsReactionTimer;
+    private Vector3 knockbackStartPosition;
+    private Vector3 knockbackDirection;
     private RigBuilder rb;
     [SerializeField] private bool miiMotion;
+    private bool usesDirectHandSocketWeapon;
     // ------- 프레임 독립용: 초 단위 타이머로 변환 -------
     [Header("Frame→Seconds 변환(참고 FPS=60 기준)")]
     [SerializeField] float refFps = 60f;
@@ -71,6 +87,9 @@ public class EnemyWorker : MonoBehaviour
 
     public Vector2 AttackDirection => attackDirection;
     public Vector2 GuardDirection => new(tx, ty);
+    public int AttackSequence => attackSequence;
+    public bool IsAttackHitActive => health > -1 && attackSequence > 0
+        && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetEnemySlots()
@@ -99,8 +118,64 @@ public class EnemyWorker : MonoBehaviour
 
         anim = GetComponent<Animator>();
         if (anim != null)
+        {
             anim.applyRootMotion = false;
+            AnchorSimpleWeaponUnderRightSocket();
+        }
         RebindHeadConstraints();
+    }
+
+    private void AnchorSimpleWeaponUnderRightSocket()
+    {
+        if (sword == null || anim == null)
+            return;
+
+        Transform rightHand = anim.GetBoneTransform(HumanBodyBones.RightHand);
+        if (rightHand == null)
+            return;
+
+        Transform rightSocket = null;
+        foreach (Transform child in rightHand.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.name == "Weapon_r Socket")
+            {
+                rightSocket = child;
+                break;
+            }
+        }
+
+        if (rightSocket == null || sword == rightSocket)
+            return;
+
+        if (sword.IsChildOf(rightSocket))
+        {
+            DisableSimpleWeaponRig();
+            return;
+        }
+
+        // The knight installer previously placed the rendered weapon beside the socket as a
+        // direct RightHand child. Animator can restore such extra animated transforms when a
+        // state starts, which discards the grip pose authored in the scene. Move that whole
+        // weapon branch below the non-animated socket while preserving its exact world pose.
+        Transform weaponRoot = sword;
+        while (weaponRoot.parent != null && weaponRoot.parent != rightHand)
+            weaponRoot = weaponRoot.parent;
+
+        if (weaponRoot.parent != rightHand
+            || weaponRoot.name.IndexOf("RightHand Weapon", System.StringComparison.OrdinalIgnoreCase) < 0)
+            return;
+
+        weaponRoot.SetParent(rightSocket, true);
+        DisableSimpleWeaponRig();
+    }
+
+    // Simple knight weapons follow the authored socket pose; legacy blend rigging is not used.
+    private void DisableSimpleWeaponRig()
+    {
+        usesDirectHandSocketWeapon = true;
+        if (weaponBlend != null) weaponBlend.weight = 0f;
+        if (rightArmIK != null) rightArmIK.weight = 0f;
+        if (leftArmIK != null) leftArmIK.weight = 0f;
     }
 
     private void RebindHeadConstraints()
@@ -146,33 +221,52 @@ public class EnemyWorker : MonoBehaviour
         kFast = -refFps * Mathf.Log(0.9f);  // per-frame 0.1과 유사한 반응
         kSlow = -refFps * Mathf.Log(0.99f); // per-frame 0.01과 유사한 반응
         nav = ResolveRootAgent();
-        hitVFX = Resources.Load<GameObject>($"Prefab/HitVFX");
-        shieldVFX = Resources.Load<GameObject>($"Prefab/ShieldVFX");
+        hitVFX = Resources.Load<GameObject>("Prefab/BrokenEdgeHitVFX");
+        shieldVFX = Resources.Load<GameObject>("Prefab/BrokenEdgeGuardVFX");
         audioSource = GetComponent<AudioSource>();
         playerAnim = PlayerWorker.playerAnimator != null
             ? PlayerWorker.playerAnimator
             : PlayerWorker.player.GetComponent<Animator>();
         rigid = GetComponent<Rigidbody>();
+        if (rigid == null) rigid = gameObject.AddComponent<Rigidbody>();
+        movementCapsule = GetComponent<CapsuleCollider>();
+        characterController = GetComponent<CharacterController>();
+        if (characterController == null)
+            characterController = gameObject.AddComponent<CharacterController>();
+        ConfigureCharacterController();
+        engagementRadius = Mathf.Min(engagementRadius, 2.2f);
+        additionalRingSpacing = Mathf.Min(additionalRingSpacing, 1.5f);
         if (nav != null)
         {
             nav.speed = movementSpeed;
             nav.acceleration = Mathf.Max(12f, movementSpeed * 4f);
             nav.angularSpeed = 0f;
+            nav.updatePosition = true;
             nav.updateRotation = false;
             nav.autoBraking = true;
             nav.autoRepath = true;
             nav.autoTraverseOffMeshLink = true;
             nav.stoppingDistance = 0.25f;
+            // Formation slots keep final positions separate. Disabling local avoidance prevents
+            // several agents from deadlocking each other in narrow paths.
+            nav.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
             nav.avoidancePriority = 20 + GetAssignedSlot() % 70;
             PlaceAgentOnNavMesh();
+            previousNavPosition = transform.position;
         }
         if (rigid != null && nav != null)
         {
             rigid.isKinematic = true;
             rigid.useGravity = false;
-            rigid.constraints = RigidbodyConstraints.FreezeRotation;
-            rigid.interpolation = RigidbodyInterpolation.Interpolate;
-            rigid.angularVelocity = Vector3.zero;
+            rigid.detectCollisions = false;
+            rigid.constraints = RigidbodyConstraints.FreezeAll;
+        }
+        TargetMatching weaponTarget = GetComponentInChildren<TargetMatching>(true);
+        if (weaponTarget != null)
+        {
+            psword = weaponTarget.transform;
+            if (sword == null) sword = psword;
+            SwordHitbox.Configure(weaponTarget.gameObject, this);
         }
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
@@ -183,6 +277,30 @@ public class EnemyWorker : MonoBehaviour
         rb.Build();
         rightTemp = new GameObject("RightTemp");
         leftTemp = new GameObject("LeftTemp");
+        IgnoreCombatantMovementCollisions();
+    }
+
+    private void IgnoreCombatantMovementCollisions()
+    {
+        if (characterController == null) return;
+
+        Collider[] ownMovementColliders = GetComponents<Collider>();
+        if (PlayerWorker.player != null)
+            IgnoreColliderSets(ownMovementColliders, PlayerWorker.player.GetComponents<Collider>());
+
+        foreach (EnemyWorker other in ActiveEnemies)
+        {
+            if (other == null || other == this) continue;
+            IgnoreColliderSets(ownMovementColliders, other.GetComponents<Collider>());
+        }
+    }
+
+    private static void IgnoreColliderSets(Collider[] first, Collider[] second)
+    {
+        foreach (Collider a in first)
+        foreach (Collider b in second)
+            if (a != null && b != null && a != b)
+                Physics.IgnoreCollision(a, b, true);
     }
 
     private NavMeshAgent ResolveRootAgent()
@@ -220,6 +338,27 @@ public class EnemyWorker : MonoBehaviour
         return rootAgent;
     }
 
+    private void ConfigureCharacterController()
+    {
+        if (characterController == null)
+            return;
+
+        if (movementCapsule != null)
+        {
+            characterController.center = movementCapsule.center;
+            characterController.radius = movementCapsule.radius;
+            characterController.height = movementCapsule.height;
+            movementCapsule.enabled = false;
+        }
+
+        characterController.stepOffset = Mathf.Min(0.45f,
+            Mathf.Max(0f, characterController.height - characterController.radius * 2f));
+        characterController.slopeLimit = 55f;
+        characterController.skinWidth = 0.03f;
+        characterController.minMoveDistance = 0f;
+        characterController.enableOverlapRecovery = true;
+    }
+
     private bool IsPlayerInView()
     {
         if (PlayerWorker.player == null)
@@ -246,26 +385,6 @@ public class EnemyWorker : MonoBehaviour
         }
         float testScore = (new Vector2(tx, ty)).magnitude; // (0,0)에서의 거리
         anim.SetFloat("time", 1f - testScore / 180f);
-
-        // 무기 트리거 on/off
-        if (PlayerWorker.ent && PlayerWorker.ent == gameObject)
-        {
-            var t = GetComponentInChildren<TargetMatching>().transform;
-            t.GetComponent<Collider>().isTrigger = false;
-        }
-        else
-        {
-            GetComponentInChildren<TargetMatching>().GetComponent<Collider>().isTrigger = true;
-        }
-
-        // 충돌 무시 토글
-        if (PlayerWorker.ent && PlayerWorker.ent.transform == transform)
-        {
-            bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
-            bool inTransition = anim.IsInTransition(0);
-            if (!inAttack || (inAttack && inTransition))
-                Physics.IgnoreLayerCollision(6, 9, true);
-        }
 
         // 플레이어 방향 회전(공격 중/스턴 아닐 때)
         if (!physicsReaction && PlayerWorker.player != null && swing == 0 && health > -1)
@@ -340,8 +459,9 @@ public class EnemyWorker : MonoBehaviour
                 if (PlayerWorker.ent && PlayerWorker.ent.transform == transform)
                 {
                     attackDirection = new Vector2(tx, ty);
-                    anim.CrossFade("Attack", 0f, 0);
-                    anim.CrossFade("Attack", 0f, 1);
+                    attackSequence++;
+                    anim.CrossFade("Attack", 0.25f, 0);
+                    anim.CrossFade("Attack", 0.25f, 1);
                     ma.weight = 0f;
                     swing = 1;
 
@@ -350,7 +470,6 @@ public class EnemyWorker : MonoBehaviour
                     rtx = Mathf.Clamp(-tx, -180f, 180f);
                     rty = Mathf.Clamp(-ty, -30f, 150f);
 
-                    Physics.IgnoreLayerCollision(6, 9, false);
                 }
                 else
                 {
@@ -387,8 +506,8 @@ public class EnemyWorker : MonoBehaviour
                 rty = Mathf.Clamp(rty, -30f, 150f);
 
                 guard = 1;
-                anim.CrossFade("BlockIdle", 0f, 0);
-                anim.CrossFade("BlockIdle", 0f, 1);
+                anim.CrossFade("BlockIdle", 0.25f, 0);
+                anim.CrossFade("BlockIdle", 0.25f, 1);
 
                 // 가드 포즈 즉시 보정(프레임 독립)
                 //sword.localPosition = new Vector3(sword.localPosition.x + 1f, sword.localPosition.y - 2f, sword.localPosition.z);
@@ -401,8 +520,8 @@ public class EnemyWorker : MonoBehaviour
             coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
             guardTimer = -1f;
             guard = 0;
-            anim.CrossFade("Idle", 0f, 0);
-            anim.CrossFade("Idle", 0f, 1);
+            anim.CrossFade("Idle", 0.25f, 0);
+            anim.CrossFade("Idle", 0.25f, 1);
             //sword.localPosition = swordOffset;
         }
 
@@ -411,7 +530,7 @@ public class EnemyWorker : MonoBehaviour
         {
             legAnim.UseGluing = !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
         }
-        if (miiMotion) return;
+        if (miiMotion || usesDirectHandSocketWeapon || weaponBlend == null) return;
 
         float w = Mathf.Clamp01((180f + tx) / 360f);
 
@@ -483,7 +602,17 @@ public class EnemyWorker : MonoBehaviour
             return;
 
         if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, nav.areaMask))
+        {
             nav.Warp(hit.position);
+            if (!nav.updatePosition && Vector3.Distance(transform.position, hit.position) > 0.05f)
+            {
+                bool controllerWasEnabled = characterController != null && characterController.enabled;
+                if (controllerWasEnabled) characterController.enabled = false;
+                transform.position = hit.position;
+                if (controllerWasEnabled) characterController.enabled = true;
+                nav.nextPosition = transform.position;
+            }
+        }
     }
 
     private void UpdateNavigation(float deltaTime)
@@ -494,15 +623,14 @@ public class EnemyWorker : MonoBehaviour
 
         if (physicsReaction)
         {
-            UpdatePhysicsRecovery(deltaTime);
+            UpdateRootPhysicsKnockback(deltaTime);
             return;
         }
 
         PlaceAgentOnNavMesh();
         if (!nav.isOnNavMesh)
         {
-            anim.SetFloat("mx", 0f);
-            anim.SetFloat("mz", 0f);
+            MoveTowardWithoutNavMesh(CalculateSlotPosition(GetAssignedSlot()), deltaTime);
             return;
         }
 
@@ -514,6 +642,7 @@ public class EnemyWorker : MonoBehaviour
             return;
         }
 
+        nav.updatePosition = true;
         nav.isStopped = false;
         destinationRefreshTimer -= deltaTime;
         if (destinationRefreshTimer <= 0f)
@@ -522,11 +651,36 @@ public class EnemyWorker : MonoBehaviour
             int slot = GetAssignedSlot();
             Vector3 requestedSlot = CalculateSlotPosition(slot);
 
-            if (!TrySetReachableDestination(requestedSlot, slotSampleRadius))
-                TrySetReachableDestination(PlayerWorker.player.position, slotSampleRadius * 2f);
+            useDirectPursuit = false;
+            float slotRadius = Mathf.Max(3f, slotSampleRadius);
+            float playerRadius = Mathf.Max(6f, slotSampleRadius * 3f);
+            bool pathAssigned = TrySetReachableDestination(requestedSlot, slotRadius, false)
+                || TrySetReachableDestination(PlayerWorker.player.position, playerRadius, false)
+                || TrySetReachableDestination(requestedSlot, slotRadius, true)
+                || TrySetReachableDestination(PlayerWorker.player.position, playerRadius, true);
+            if (!pathAssigned)
+            {
+                // Never drive directly through level geometry when a path is unavailable.
+                // A fresh partial/complete path will be requested on the next refresh.
+                nav.ResetPath();
+                useDirectPursuit = false;
+            }
         }
 
-        Vector3 localVelocity = transform.InverseTransformDirection(nav.desiredVelocity);
+        Vector3 desiredVelocity;
+        if (useDirectPursuit)
+        {
+            Vector3 toTarget = directPursuitTarget - transform.position;
+            toTarget.y = 0f;
+            desiredVelocity = toTarget.magnitude <= nav.stoppingDistance + 0.15f
+                ? Vector3.zero
+                : toTarget.normalized * nav.speed;
+        }
+        else
+        {
+            desiredVelocity = nav.desiredVelocity;
+        }
+        Vector3 localVelocity = transform.InverseTransformDirection(desiredVelocity);
         float speed = Mathf.Max(0.01f, nav.speed);
         anim.SetFloat("mx", Mathf.Clamp(localVelocity.x / speed, -1f, 1f));
         anim.SetFloat("mz", Mathf.Clamp(localVelocity.z / speed, -1f, 1f));
@@ -537,85 +691,167 @@ public class EnemyWorker : MonoBehaviour
             nav.isStopped = true;
             anim.SetFloat("mx", 0f);
             anim.SetFloat("mz", 0f);
+            desiredVelocity = Vector3.zero;
+        }
+
+        if (useDirectPursuit)
+        {
+            nav.updatePosition = false;
+            MoveCharacter(desiredVelocity, deltaTime);
+        }
+        else
+        {
+            RecoverStuckAgent(desiredVelocity, deltaTime);
         }
     }
 
-    private bool TrySetReachableDestination(Vector3 requestedPosition, float sampleRadius)
+    private void RecoverStuckAgent(Vector3 desiredVelocity, float deltaTime)
+    {
+        Vector3 moved = transform.position - previousNavPosition;
+        moved.y = 0f;
+        bool shouldBeMoving = desiredVelocity.sqrMagnitude > 0.09f;
+        navStuckTimer = shouldBeMoving && moved.sqrMagnitude < 0.0001f
+            ? navStuckTimer + deltaTime
+            : 0f;
+        previousNavPosition = transform.position;
+
+        if (navStuckTimer < 0.75f) return;
+
+        navStuckTimer = 0f;
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit recovery, 1.5f, nav.areaMask))
+            nav.Warp(recovery.position);
+        nav.ResetPath();
+        destinationRefreshTimer = 0f;
+    }
+
+    private void MoveTowardWithoutNavMesh(Vector3 target, float deltaTime)
+    {
+        Vector3 toTarget = target - transform.position;
+        toTarget.y = 0f;
+        Vector3 velocity = toTarget.magnitude <= 0.25f
+            ? Vector3.zero
+            : toTarget.normalized * movementSpeed;
+
+        Vector3 localVelocity = transform.InverseTransformDirection(velocity);
+        anim.SetFloat("mx", Mathf.Clamp(localVelocity.x / Mathf.Max(0.01f, movementSpeed), -1f, 1f));
+        anim.SetFloat("mz", Mathf.Clamp(localVelocity.z / Mathf.Max(0.01f, movementSpeed), -1f, 1f));
+        MoveCharacter(velocity, deltaTime);
+    }
+
+    private void MoveCharacter(Vector3 horizontalVelocity, float deltaTime)
+    {
+        if (characterController == null || !characterController.enabled)
+            return;
+
+        horizontalVelocity.y = 0f;
+        if (characterController.isGrounded && verticalVelocity < 0f)
+            verticalVelocity = -2f;
+        else
+            verticalVelocity += Physics.gravity.y * deltaTime;
+
+        CollisionFlags flags = characterController.Move(
+            (horizontalVelocity + Vector3.up * verticalVelocity) * deltaTime);
+        if ((flags & CollisionFlags.Below) != 0 && verticalVelocity < 0f)
+            verticalVelocity = -2f;
+
+        if (nav != null && nav.enabled && nav.isOnNavMesh)
+            nav.nextPosition = transform.position;
+    }
+
+    private bool TrySetReachableDestination(Vector3 requestedPosition, float sampleRadius, bool allowPartial)
     {
         if (!NavMesh.SamplePosition(requestedPosition, out NavMeshHit hit, sampleRadius, nav.areaMask))
             return false;
 
         NavMeshPath path = new();
         if (!NavMesh.CalculatePath(nav.nextPosition, hit.position, nav.areaMask, path)
-                || path.status != NavMeshPathStatus.PathComplete)
+                || path.status == NavMeshPathStatus.PathInvalid
+                || (!allowPartial && path.status != NavMeshPathStatus.PathComplete)
+                || path.corners == null || path.corners.Length < 2)
             return false;
 
         return nav.SetPath(path);
     }
 
-    public void ApplyCombatKnockback(Vector3 displacement)
+    public void ApplyCombatKnockback(Vector3 direction)
     {
-        displacement.y = 0f;
-        BeginPhysicsReaction(Vector3.ClampMagnitude(displacement, 3f));
+        BeginRootPhysicsKnockback(direction);
     }
 
-    private void BeginPhysicsReaction(Vector3 velocityChange)
+    private void BeginRootPhysicsKnockback(Vector3 direction)
     {
-        if (rigid == null || health < 0)
+        if (nav == null || rigid == null || health < 0)
             return;
 
-        velocityChange.y = 0f;
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0001f) return;
 
-        if (!physicsReaction)
+        knockbackDirection = direction.normalized;
+        knockbackStartPosition = transform.position;
+        physicsReactionTimer = 0f;
+        if (nav.enabled && nav.isOnNavMesh)
         {
-            if (nav != null && nav.enabled)
-            {
-                if (nav.isOnNavMesh)
-                    nav.ResetPath();
-                nav.enabled = false;
-            }
-            rigid.isKinematic = false;
-            rigid.useGravity = true;
-            rigid.constraints = RigidbodyConstraints.FreezeRotation;
-            rigid.angularVelocity = Vector3.zero;
-            physicsReaction = true;
-            physicsReactionTimer = 0f;
+            nav.isStopped = true;
+            nav.ResetPath();
         }
+        nav.enabled = false;
+        if (characterController != null) characterController.enabled = false;
+        if (movementCapsule != null) movementCapsule.enabled = true;
 
-        Vector3 currentVelocity = rigid.linearVelocity;
-        rigid.linearVelocity = new Vector3(currentVelocity.x, Mathf.Min(currentVelocity.y, 0f), currentVelocity.z);
-        rigid.AddForce(velocityChange, ForceMode.VelocityChange);
+        rigid.isKinematic = false;
+        rigid.useGravity = false;
+        rigid.detectCollisions = true;
+        rigid.interpolation = RigidbodyInterpolation.Interpolate;
+        rigid.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        rigid.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
+        rigid.linearDamping = knockbackSlideDamping;
+        rigid.angularDamping = knockbackSlideDamping;
+        rigid.linearVelocity = Vector3.zero;
+        rigid.angularVelocity = Vector3.zero;
+        rigid.AddForce(knockbackDirection * knockbackDistance * knockbackSlideDamping,
+            ForceMode.VelocityChange);
+        physicsReaction = true;
     }
 
-    private void UpdatePhysicsRecovery(float deltaTime)
+    private void UpdateRootPhysicsKnockback(float deltaTime)
     {
         physicsReactionTimer += deltaTime;
         anim.SetFloat("mx", 0f);
         anim.SetFloat("mz", 0f);
 
+        Vector3 travelled = rigid.position - knockbackStartPosition;
+        travelled.y = 0f;
         Vector3 velocity = rigid.linearVelocity;
-        Vector3 horizontalVelocity = new(velocity.x, 0f, velocity.z);
-        horizontalVelocity *= Mathf.Exp(-knockbackSlideDamping * deltaTime);
-        rigid.linearVelocity = new Vector3(horizontalVelocity.x, Mathf.Min(velocity.y, 0f), horizontalVelocity.z);
+        velocity.y = 0f;
+        bool reachedDistance = travelled.magnitude >= knockbackDistance;
+        bool settled = physicsReactionTimer > 0.2f
+            && velocity.sqrMagnitude <= knockbackStopSpeed * knockbackStopSpeed;
+        bool timeout = physicsReactionTimer >= knockbackMaxTime;
+        if (!reachedDistance && !settled && !timeout) return;
 
-        bool minimumElapsed = physicsReactionTimer >= physicsReactionMinTime;
-        bool settled = horizontalVelocity.sqrMagnitude <= physicsSettleSpeed * physicsSettleSpeed;
-        bool timeout = physicsReactionTimer >= physicsReactionMaxTime;
-        if (!minimumElapsed || (!settled && !timeout))
-            return;
-
-        float sampleRadius = timeout ? 5f : 2f;
-        if (!NavMesh.SamplePosition(rigid.position, out NavMeshHit hit, sampleRadius, NavMesh.AllAreas))
-            return;
-
+        if (reachedDistance)
+        {
+            Vector3 clamped = knockbackStartPosition + knockbackDirection * knockbackDistance;
+            clamped.y = rigid.position.y;
+            rigid.position = clamped;
+        }
         rigid.linearVelocity = Vector3.zero;
         rigid.angularVelocity = Vector3.zero;
-        rigid.position = hit.position;
+        rigid.linearDamping = 0f;
         rigid.isKinematic = true;
-        rigid.useGravity = false;
-        nav.enabled = true;
-        nav.Warp(hit.position);
+        rigid.detectCollisions = false;
+        rigid.constraints = RigidbodyConstraints.FreezeAll;
+        if (movementCapsule != null) movementCapsule.enabled = false;
+        if (characterController != null) characterController.enabled = true;
         physicsReaction = false;
+        nav.enabled = true;
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit recovery, 2f, nav.areaMask))
+        {
+            nav.Warp(recovery.position);
+            nav.updatePosition = true;
+        }
+        if (nav.isOnNavMesh)
+            nav.isStopped = false;
         destinationRefreshTimer = 0f;
     }
 
@@ -624,7 +860,10 @@ public class EnemyWorker : MonoBehaviour
     {
         if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && (!playerAnim || anim.GetCurrentAnimatorStateInfo(0).IsName("Attack")))
         {
-            anim.GetBoneTransform(HumanBodyBones.Head).rotation = Quaternion.Euler(headRotOffset + new Vector3(0, transform.rotation.eulerAngles.y, 0));
+            Transform head = anim.GetBoneTransform(HumanBodyBones.Head);
+            head.rotation = headOffsetIsRootLocal
+                ? Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * Quaternion.Euler(headRotOffset)
+                : Quaternion.Euler(headRotOffset + new Vector3(0, transform.rotation.eulerAngles.y, 0));
         }
         if (miiMotion)
         {
@@ -667,37 +906,37 @@ public class EnemyWorker : MonoBehaviour
         }
     }
 
-    private void OnCollisionEnter(Collision collision)
+    public void ReceiveSwordHit(PlayerWorker attacker, Collider weaponCollider, Collider bodyCollider,
+        Vector3 hitPoint, int sourceAttackSequence)
     {
-        if (collision.gameObject.layer == 8 && PlayerWorker.player != null && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
+        hitPoint = SwordHitbox.ResolveSurfaceContact(weaponCollider, bodyCollider, hitPoint);
+        if (attacker != null && attacker.IsAttackHitActive && PlayerWorker.player != null
+            && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
         {
-            PlayerWorker attacker = PlayerWorker.player.GetComponent<PlayerWorker>();
             bool blocked = guard == 1
-                           && attacker != null
                            && CombatDirectionUtility.CanBlock(attacker.AttackDirection, GuardDirection);
             if (!blocked)
             {
                 if (health > 0)
                 {
                     health--;
-                    Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (collision.contacts[0].point - (transform.position + Vector3.up));
+                    Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
-                    anim.CrossFade("Hurted", 0, 0);
+                    anim.CrossFade("Hurted", 0.25f, 0);
                     Vector3 impactDirection = transform.position - PlayerWorker.player.position;
-                    impactDirection.y = 0.2f;
-                    BeginPhysicsReaction(impactDirection.normalized * 1.5f);
-                    GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
-                    Destroy(hit, 0.3f);
-                    SoundManager.Instance.SFXPlay("Armor Impact 1");
+                    impactDirection.y = 0f;
+                    ApplyCombatKnockback(impactDirection);
+                    Swordplay.Visuals.BrokenEdgeCombatImpactVfx.SpawnHit(transform, hitPoint);
+                    CombatImpactAudio.PlayExplosionAtPoint(hitPoint);
                 }
                 else
                 {
                     if (guard == 1)
                     {
                         guard = 0;
-                        anim.CrossFade("Idle", 0, 0);
-                        anim.CrossFade("Idle", 0, 1);
+                        anim.CrossFade("Idle", 0.25f, 0);
+                        anim.CrossFade("Idle", 0.25f, 1);
                         //sword.localPosition = swordOffset;
                     }
                     health = -1;
@@ -705,13 +944,14 @@ public class EnemyWorker : MonoBehaviour
                     ReleaseSlot();
                     if (nav != null)
                         nav.enabled = false;
+                    if (characterController != null)
+                        characterController.enabled = false;
                     rig.weight = 0;
-                    GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
-                    Destroy(hit, 0.3f);
+                    Swordplay.Visuals.BrokenEdgeCombatImpactVfx.SpawnHit(transform, hitPoint);
                     Destroy(legAnim);
                     Destroy(GetComponent<Collider>());
                     Destroy(rigid);
-                    SoundManager.Instance.SFXPlay("Armor Impact 1");
+                    CombatImpactAudio.PlayExplosionAtPoint(hitPoint);
                     gameObject.tag = "Untagged";
                     Destroy(gameObject, 5f);
                     Invoke("Dissolve", 4);
@@ -725,7 +965,8 @@ public class EnemyWorker : MonoBehaviour
                             Rigidbody rrigid = collider.gameObject.AddComponent<Rigidbody>();
                             rrigid.linearVelocity = Vector3.zero;
                             rrigid.angularVelocity = Vector3.zero;
-                            rrigid.AddForceAtPosition(collision.gameObject.GetComponent<Rigidbody>().linearVelocity, collision.contacts[0].point, ForceMode.Impulse);
+                            Vector3 ragdollImpulse = attacker.transform.forward * 3f;
+                            rrigid.AddForceAtPosition(ragdollImpulse, hitPoint, ForceMode.Impulse);
                             ConfigurableJoint joint = collider.gameObject.AddComponent<ConfigurableJoint>();
                             if (collider.gameObject.name != "Hips")
                             {
@@ -773,12 +1014,17 @@ public class EnemyWorker : MonoBehaviour
             }
             else
             {
-                GameObject shield = Instantiate(shieldVFX, collision.contacts[0].point, Quaternion.LookRotation(transform.forward));
-                Destroy(shield, 0.3f);
-                SoundManager.Instance.SFXPlay("Shield Impact 2");
-                attacker.ApplyCombatKnockback(-PlayerWorker.player.forward * 0.75f);
+                // A successful guard uses the same contact blast as a hit for now,
+                // but rebounds the attacker rather than moving the defender.
+                Swordplay.Visuals.BrokenEdgeCombatImpactVfx.SpawnHit(transform, hitPoint);
+                CombatImpactAudio.PlayExplosionAtPoint(hitPoint);
+                Vector3 reboundDirection = attacker.transform.position - transform.position;
+                reboundDirection.y = 0f;
+                if (reboundDirection.sqrMagnitude < 0.0001f)
+                    reboundDirection = -transform.forward;
+                attacker.ApplyCombatKnockback(reboundDirection);
                 if (!playerAnim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                    playerAnim.CrossFade("Guarded", 0, 0);
+                    playerAnim.CrossFade("Guarded", 0.25f, 0);
             }
         }
     }

@@ -243,14 +243,14 @@ public class PlayerMotion : MonoBehaviour
         if (health > -1 && (new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"))).magnitude > canSwing && guard == 0 && swing == 0 && lr && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack") && !anim.GetCurrentAnimatorStateInfo(1).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded")) //������
         {
             anim.SetBool("leftStep", lr);
-            anim.CrossFade("Attack", 0, 0);
+            anim.CrossFade("Attack", 0.25f, 0);
             lr = false;
             SoundManager.Instance.SFXPlay("Swing1");
         }
         else if (health > -1 && (new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"))).magnitude > canSwing && guard == 0 && swing == 0 && !lr && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack") && !anim.GetCurrentAnimatorStateInfo(1).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded")) //������
         {
             anim.SetBool("leftStep", lr);
-            anim.CrossFade("Attack", 0, 0);
+            anim.CrossFade("Attack", 0.25f, 0);
             lr = true;
             SoundManager.Instance.SFXPlay("Swing1");
         }
@@ -304,7 +304,7 @@ public class PlayerMotion : MonoBehaviour
         if (angle < 10f && GetComponent<Rigidbody>().angularVelocity.magnitude < 0.1f && anim.GetCurrentAnimatorStateInfo(1).IsName("Hurted"))
         {
             GetComponent<LegsAnimator>().UseGluing = true;
-            anim.CrossFade("Idle", 0, 1);
+            anim.CrossFade("Idle", 0.25f, 1);
             GetComponent<Animator>().applyRootMotion = true;
             GetComponent<RigBuilder>().enabled = true;
         }
@@ -371,7 +371,7 @@ public class PlayerMotion : MonoBehaviour
                     var limit2 = joint.angularZLimit;
                     limit2.limit = 90;
                     joint.angularZLimit = limit2;
-                    anim.CrossFade("Hurted", 0, 1);
+                    anim.CrossFade("Hurted", 0.25f, 1);
                     anim.applyRootMotion = false;
                     GetComponent<RigBuilder>().enabled = false;
                     GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
@@ -503,7 +503,7 @@ public class PlayerMotion : MonoBehaviour
                         var limit2 = joint.angularZLimit;
                         limit2.limit = 90;
                         joint.angularZLimit = limit2;
-                        anim.CrossFade("Hurted", 0, 1);
+                        anim.CrossFade("Hurted", 0.25f, 1);
                         anim.applyRootMotion = false;
                         GetComponent<RigBuilder>().enabled = false;
                         GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
@@ -618,7 +618,7 @@ public class PlayerMotion : MonoBehaviour
                     SoundManager.Instance.SFXPlay("Armor Impact 2");
                     ent.transform.position -= ent.transform.forward;
                     if (!ent.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                        ent.GetComponent<Animator>().CrossFade("Guarded", 0, 0);
+                        ent.GetComponent<Animator>().CrossFade("Guarded", 0.25f, 0);
                 }
             }
         }

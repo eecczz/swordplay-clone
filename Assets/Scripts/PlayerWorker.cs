@@ -5,6 +5,7 @@ using UnityEngine.AI;
 using UnityEngine.Animations.Rigging;
 using FIMSpace.FProceduralAnimation;
 
+[RequireComponent(typeof(CharacterController))]
 public class PlayerWorker : MonoBehaviour
 {
     public static Transform player;
@@ -35,24 +36,34 @@ public class PlayerWorker : MonoBehaviour
     private RigBuilder rb;
     private AudioSource audioSource;
     private CapsuleCollider movementCapsule;
+    // CharacterController owns normal locomotion; the root Rigidbody temporarily owns knockback.
+    private CharacterController characterController;
     private Vector2 movementInput;
-    private Vector3 pendingKnockback;
+    private Vector3 movementVelocity;
+    private float verticalVelocity;
     private Vector2 attackDirection;
+    private int attackSequence;
+    [Header("Attack hit detection")]
+    [SerializeField, Range(0f, 1f)] private float attackHitStart = 0f;
+    [SerializeField, Range(0f, 1.2f)] private float attackHitEnd = 1.05f;
     [Header("Movement collision")]
-    [SerializeField] private LayerMask movementCollisionMask = ~((1 << 2) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 9));
     [SerializeField] private float maxStepHeight = 0.45f;
-    [SerializeField] private float groundSnapDistance = 0.3f;
     [SerializeField, Range(1f, 80f)] private float maxSlopeAngle = 55f;
     [SerializeField] private float movementSkin = 0.03f;
     [SerializeField, Min(1f)] private float groundAcceleration = 35f;
     [SerializeField, Min(1f)] private float airAcceleration = 8f;
     [Header("Facing and knockback")]
     [SerializeField, Min(0.1f)] private float facingLerpSpeed = 10f;
-    [SerializeField, Min(0.1f)] private float knockbackSlideDamping = 6f;
+    [SerializeField, Min(0.5f)] private float knockbackDistance = 5f;
+    [SerializeField, Min(0.1f)] private float knockbackSlideDamping = 4.5f;
     [SerializeField, Min(0.01f)] private float knockbackStopSpeed = 0.15f;
+    [SerializeField, Min(0.2f)] private float knockbackMaxTime = 3f;
     private Quaternion desiredFacingRotation;
     private bool hasFacingTarget;
-    private bool knockbackSliding;
+    private bool rootPhysicsKnockback;
+    private float knockbackTimer;
+    private Vector3 knockbackStartPosition;
+    private Vector3 knockbackDirection;
     [SerializeField] private MultiAimConstraint ma;
     [SerializeField] private Vector3 headRotOffset;
     [SerializeField] private float movementSpeed = 5f;
@@ -69,6 +80,9 @@ public class PlayerWorker : MonoBehaviour
 
     public Vector2 AttackDirection => attackDirection;
     public Vector2 GuardDirection => new(tx, ty);
+    public int AttackSequence => attackSequence;
+    public bool IsAttackHitActive => health > -1 && attackSequence > 0
+        && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
 
     /*3d character application
      head's up, forward axis compare and edit animation rigging's head ik
@@ -91,22 +105,27 @@ public class PlayerWorker : MonoBehaviour
         TargetMatching weaponTarget = GetComponentInChildren<TargetMatching>(true);
         psword = weaponTarget != null ? weaponTarget.transform : null;
         if (sword == null) sword = psword;
-        hitVFX = Resources.Load<GameObject>($"Prefab/HitVFX 1");
-        shieldVFX = Resources.Load<GameObject>($"Prefab/ShieldVFX");
+        hitVFX = Resources.Load<GameObject>("Prefab/BrokenEdgeHitVFX");
+        shieldVFX = Resources.Load<GameObject>("Prefab/BrokenEdgeGuardVFX");
         rigid = GetComponent<Rigidbody>();
+        if (rigid == null) rigid = gameObject.AddComponent<Rigidbody>();
         movementCapsule = GetComponent<CapsuleCollider>();
+        characterController = GetComponent<CharacterController>();
+        if (characterController == null)
+            characterController = gameObject.AddComponent<CharacterController>();
+        ConfigureCharacterController();
         if (rigid != null)
         {
-            rigid.interpolation = RigidbodyInterpolation.Interpolate;
-            rigid.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            rigid.constraints = RigidbodyConstraints.FreezeRotation;
-            rigid.useGravity = true;
-            rigid.maxDepenetrationVelocity = 3f;
-            rigid.angularVelocity = Vector3.zero;
+            rigid.isKinematic = true;
+            rigid.useGravity = false;
+            rigid.detectCollisions = false;
+            rigid.constraints = RigidbodyConstraints.FreezeAll;
         }
         if (anim != null)
             anim.applyRootMotion = false;
         ConfigurePhysicalRoot();
+        if (psword != null)
+            SwordHitbox.Configure(psword.gameObject, this);
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
         rb = rigBuilderOverride != null ? rigBuilderOverride : GetComponent<RigBuilder>();
@@ -222,8 +241,6 @@ public class PlayerWorker : MonoBehaviour
         IsGoal();
         if (isEnd)
             Time.timeScale = Mathf.Lerp(Time.timeScale, 0.5f, 0.01f);
-        if (!anim.GetCurrentAnimatorStateInfo(0).IsName("Attack") || (anim.GetCurrentAnimatorStateInfo(0).IsName("Attack") && anim.IsInTransition(0)))
-            Physics.IgnoreLayerCollision(7, 8, true);
         if (!onTarget && ma.data.sourceObjects[0].transform != crosshead)
         {
             var data = ma.data.sourceObjects;
@@ -268,8 +285,8 @@ public class PlayerWorker : MonoBehaviour
             if (guard == 1)
             {
                 guard = 0;
-                anim.CrossFade("Idle", 0, 0);
-                anim.CrossFade("Idle", 0, 1);
+                anim.CrossFade("Idle", 0.25f, 0);
+                anim.CrossFade("Idle", 0.25f, 1);
                 //sword.localPosition = swordOffset;//new Vector3(-0.38f, 0.514f, -0.027f);
             }
         }
@@ -278,8 +295,8 @@ public class PlayerWorker : MonoBehaviour
             if (guard == 0)
             {
                 guard = 1;
-                anim.CrossFade("BlockIdle", 0, 0);
-                anim.CrossFade("BlockIdle", 0, 1);
+                anim.CrossFade("BlockIdle", 0.25f, 0);
+                anim.CrossFade("BlockIdle", 0.25f, 1);
                 //sword.localPosition = new Vector3(sword.localPosition.x + 1, sword.localPosition.y - 2, sword.localPosition.z);
                 //sword.position += transform.forward;
                 SoundManager.Instance.SFXPlay("Shield");
@@ -294,8 +311,9 @@ public class PlayerWorker : MonoBehaviour
         if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded") && goalScore > canSwing && guard == 0 && swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack")) //������
         {
             attackDirection = new Vector2(tx, ty);
-            anim.CrossFade("Attack", 0, 0);
-            anim.CrossFade("Attack", 0, 1);
+            attackSequence++;
+            anim.CrossFade("Attack", 0.25f, 0);
+            anim.CrossFade("Attack", 0.25f, 1);
             SoundManager.Instance.SFXPlay("Swing1");
             ma.weight = 0;
         }
@@ -304,7 +322,6 @@ public class PlayerWorker : MonoBehaviour
             if (swing == 0)
             {
                 swing = 1;
-                Physics.IgnoreLayerCollision(7, 8, false);
             }
         }
         else if (health > -1)
@@ -362,57 +379,96 @@ public class PlayerWorker : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (rigid == null)
+        if (rootPhysicsKnockback)
+        {
+            UpdateRootPhysicsKnockback();
+            return;
+        }
+
+        if (characterController == null || !characterController.enabled)
             return;
 
         UpdateFacingRotation();
 
         Vector3 localMove = new(movementInput.x, 0f, movementInput.y);
         Vector3 desiredDirection = Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * localMove;
-        bool grounded = TryGetGround(out RaycastHit groundHit);
-        if (grounded && desiredDirection.sqrMagnitude > 0.0001f)
-            desiredDirection = Vector3.ProjectOnPlane(desiredDirection, groundHit.normal).normalized;
+        bool grounded = characterController.isGrounded;
+        Vector3 targetHorizontal = desiredDirection * movementSpeed;
+        float acceleration = grounded ? groundAcceleration : airAcceleration;
+        movementVelocity = Vector3.MoveTowards(movementVelocity, targetHorizontal,
+            acceleration * Time.fixedDeltaTime);
 
-        if (pendingKnockback.sqrMagnitude > 0.0001f)
-        {
-            pendingKnockback.y = 0f;
-            Vector3 currentVelocity = rigid.linearVelocity;
-            rigid.linearVelocity = new Vector3(currentVelocity.x + pendingKnockback.x,
-                Mathf.Min(currentVelocity.y, 0f), currentVelocity.z + pendingKnockback.z);
-            pendingKnockback = Vector3.zero;
-            knockbackSliding = true;
-        }
-
-        Vector3 velocity = rigid.linearVelocity;
-        if (knockbackSliding)
-        {
-            Vector3 horizontal = new(velocity.x, 0f, velocity.z);
-            horizontal *= Mathf.Exp(-knockbackSlideDamping * Time.fixedDeltaTime);
-            if (horizontal.sqrMagnitude <= knockbackStopSpeed * knockbackStopSpeed)
-            {
-                horizontal = Vector3.zero;
-                knockbackSliding = false;
-            }
-            rigid.linearVelocity = new Vector3(horizontal.x, Mathf.Min(velocity.y, 0f), horizontal.z);
-        }
+        if (grounded && verticalVelocity < 0f)
+            verticalVelocity = -2f;
         else
-        {
-            Vector3 horizontal = new(velocity.x, 0f, velocity.z);
-            Vector3 targetHorizontal = desiredDirection * movementSpeed;
-            float acceleration = grounded ? groundAcceleration : airAcceleration;
-            horizontal = Vector3.MoveTowards(horizontal, targetHorizontal,
-                acceleration * Time.fixedDeltaTime);
-            rigid.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
-        }
+            verticalVelocity += Physics.gravity.y * Time.fixedDeltaTime;
 
-        if (grounded && desiredDirection.sqrMagnitude > 0.0001f)
-            TryStepUp(desiredDirection.normalized);
+        CollisionFlags flags = characterController.Move(
+            (movementVelocity + Vector3.up * verticalVelocity) * Time.fixedDeltaTime);
+        if ((flags & CollisionFlags.Below) != 0 && verticalVelocity < 0f)
+            verticalVelocity = -2f;
     }
 
-    public void ApplyCombatKnockback(Vector3 displacement)
+    public void ApplyCombatKnockback(Vector3 direction)
     {
-        displacement.y = 0f;
-        pendingKnockback += Vector3.ClampMagnitude(displacement, 2f);
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0001f || rigid == null) return;
+
+        knockbackDirection = direction.normalized;
+        knockbackStartPosition = transform.position;
+        knockbackTimer = 0f;
+        movementVelocity = Vector3.zero;
+        verticalVelocity = 0f;
+        rootPhysicsKnockback = true;
+
+        if (characterController != null) characterController.enabled = false;
+        if (movementCapsule != null) movementCapsule.enabled = true;
+        rigid.isKinematic = false;
+        rigid.useGravity = false;
+        rigid.detectCollisions = true;
+        rigid.interpolation = RigidbodyInterpolation.Interpolate;
+        rigid.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        rigid.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
+        rigid.linearDamping = knockbackSlideDamping;
+        rigid.angularDamping = knockbackSlideDamping;
+        rigid.linearVelocity = Vector3.zero;
+        rigid.angularVelocity = Vector3.zero;
+        rigid.AddForce(knockbackDirection * knockbackDistance * knockbackSlideDamping,
+            ForceMode.VelocityChange);
+    }
+
+    private void UpdateRootPhysicsKnockback()
+    {
+        knockbackTimer += Time.fixedDeltaTime;
+        Vector3 travelled = rigid.position - knockbackStartPosition;
+        travelled.y = 0f;
+        Vector3 velocity = rigid.linearVelocity;
+        velocity.y = 0f;
+        bool reachedDistance = travelled.magnitude >= knockbackDistance;
+        bool stopped = knockbackTimer > 0.2f
+            && velocity.sqrMagnitude <= knockbackStopSpeed * knockbackStopSpeed;
+        if (!reachedDistance && !stopped && knockbackTimer < knockbackMaxTime) return;
+
+        if (reachedDistance)
+        {
+            Vector3 clamped = knockbackStartPosition + knockbackDirection * knockbackDistance;
+            clamped.y = rigid.position.y;
+            rigid.position = clamped;
+        }
+        FinishRootPhysicsKnockback();
+    }
+
+    private void FinishRootPhysicsKnockback()
+    {
+        rigid.linearVelocity = Vector3.zero;
+        rigid.angularVelocity = Vector3.zero;
+        rigid.linearDamping = 0f;
+        rigid.isKinematic = true;
+        rigid.detectCollisions = false;
+        rigid.constraints = RigidbodyConstraints.FreezeAll;
+        if (movementCapsule != null) movementCapsule.enabled = false;
+        if (characterController != null) characterController.enabled = true;
+        rootPhysicsKnockback = false;
     }
 
     private void ConfigurePhysicalRoot()
@@ -433,64 +489,28 @@ public class PlayerWorker : MonoBehaviour
             return;
 
         float t = 1f - Mathf.Exp(-facingLerpSpeed * Time.fixedDeltaTime);
-        rigid.MoveRotation(Quaternion.Slerp(rigid.rotation, desiredFacingRotation, t));
-        rigid.angularVelocity = Vector3.zero;
+        transform.rotation = Quaternion.Slerp(transform.rotation, desiredFacingRotation, t);
     }
 
-    private bool TryGetGround(out RaycastHit ground)
+    private void ConfigureCharacterController()
     {
-        if (movementCapsule == null)
+        if (characterController == null)
+            return;
+
+        if (movementCapsule != null)
         {
-            ground = default;
-            return false;
+            characterController.center = movementCapsule.center;
+            characterController.radius = movementCapsule.radius;
+            characterController.height = movementCapsule.height;
+            movementCapsule.enabled = false;
         }
 
-        GetWorldCapsule(rigid.position, out _, out Vector3 bottom, out float radius);
-        Vector3 origin = bottom + Vector3.up * 0.04f;
-        if (!Physics.SphereCast(origin, radius * 0.85f, Vector3.down, out ground,
-                groundSnapDistance + 0.08f, movementCollisionMask, QueryTriggerInteraction.Ignore))
-            return false;
-
-        return Vector3.Angle(ground.normal, Vector3.up) <= maxSlopeAngle;
-    }
-
-    private void TryStepUp(Vector3 direction)
-    {
-        GetWorldCapsule(rigid.position, out _, out Vector3 bottom, out float radius);
-        float checkDistance = radius + movementSpeed * Time.fixedDeltaTime;
-        Vector3 lowOrigin = bottom + Vector3.up * 0.05f;
-        if (!Physics.Raycast(lowOrigin, direction, out _, checkDistance,
-                movementCollisionMask, QueryTriggerInteraction.Ignore))
-            return;
-
-        Vector3 highOrigin = lowOrigin + Vector3.up * (maxStepHeight + 0.05f);
-        if (Physics.Raycast(highOrigin, direction, checkDistance,
-                movementCollisionMask, QueryTriggerInteraction.Ignore))
-            return;
-
-        Vector3 downOrigin = highOrigin + direction * checkDistance;
-        if (!Physics.Raycast(downOrigin, Vector3.down, out RaycastHit step,
-                maxStepHeight + 0.1f, movementCollisionMask, QueryTriggerInteraction.Ignore))
-            return;
-        if (Vector3.Angle(step.normal, Vector3.up) > maxSlopeAngle)
-            return;
-
-        float currentBottom = bottom.y - radius;
-        float stepHeight = step.point.y - currentBottom;
-        if (stepHeight > 0.02f && stepHeight <= maxStepHeight)
-            rigid.MovePosition(rigid.position + Vector3.up * (stepHeight + movementSkin));
-    }
-
-    private void GetWorldCapsule(Vector3 rootPosition, out Vector3 top, out Vector3 bottom, out float radius)
-    {
-        Vector3 scale = transform.lossyScale;
-        radius = movementCapsule.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
-        float height = Mathf.Max(movementCapsule.height * Mathf.Abs(scale.y), radius * 2f);
-        Vector3 center = transform.TransformPoint(movementCapsule.center) + (rootPosition - transform.position);
-        float segment = height * 0.5f - radius;
-        top = center + transform.up * segment;
-        bottom = center - transform.up * segment;
-        radius = Mathf.Max(0.01f, radius - movementSkin);
+        characterController.stepOffset = Mathf.Min(maxStepHeight,
+            Mathf.Max(0f, characterController.height - characterController.radius * 2f));
+        characterController.slopeLimit = maxSlopeAngle;
+        characterController.skinWidth = Mathf.Max(0.01f, movementSkin);
+        characterController.minMoveDistance = 0f;
+        characterController.enableOverlapRecovery = true;
     }
 
     [Header("Rig refs")]
@@ -556,30 +576,29 @@ public class PlayerWorker : MonoBehaviour
 
     }
 
-    private void OnCollisionEnter(Collision collision)
+    public void ReceiveSwordHit(EnemyWorker attacker, Collider weaponCollider, Collider bodyCollider,
+        Vector3 hitPoint, int sourceAttackSequence)
     {
-        if (collision.gameObject.layer == 9 && ent && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
+        hitPoint = SwordHitbox.ResolveSurfaceContact(weaponCollider, bodyCollider, hitPoint);
+        if (attacker != null && attacker.IsAttackHitActive
+            && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
         {
-            EnemyWorker attacker = collision.transform.GetComponentInParent<EnemyWorker>();
             bool blocked = guard == 1
-                           && attacker != null
                            && CombatDirectionUtility.CanBlock(attacker.AttackDirection, GuardDirection);
             if (!blocked)
             {
                 if (health > 0)
                 {
                     health--;
-                    Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (collision.contacts[0].point - (transform.position + Vector3.up));
+                    Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
-                    anim.CrossFade("Hurted", 0, 0);
-                    Vector3 impactDirection = transform.position - collision.transform.position;
-                    impactDirection.y = 0.2f;
+                    anim.CrossFade("Hurted", 0.25f, 0);
+                    Vector3 impactDirection = transform.position - attacker.transform.position;
+                    impactDirection.y = 0f;
                     ApplyCombatKnockback(impactDirection.normalized * 1.5f);
-                    GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
-                    Destroy(hit, 0.3f);
-                    SoundManager.Instance.SFXPlay("Shield Impact 1");
-                    Physics.IgnoreLayerCollision(6, 9, true);
+                    Swordplay.Visuals.BrokenEdgeCombatImpactVfx.SpawnHit(transform, hitPoint);
+                    CombatImpactAudio.PlayExplosionAtPoint(hitPoint);
                 }
                 else
                 {
@@ -588,17 +607,18 @@ public class PlayerWorker : MonoBehaviour
                         guard = 0;
                         //sword.localPosition = swordOffset;//new Vector3(-0.38f, 0.514f, -0.027f);
                         //sword.position -= transform.forward;
-                        anim.CrossFade("Idle", 0, 0);
+                        anim.CrossFade("Idle", 0.25f, 0);
                     }
                     health = -1;
                     anim.enabled = false;
                     rig.weight = 0;
-                    GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
-                    Destroy(hit, 0.3f);
+                    if (characterController != null)
+                        characterController.enabled = false;
+                    Swordplay.Visuals.BrokenEdgeCombatImpactVfx.SpawnHit(transform, hitPoint);
                     Destroy(legAnim);
                     Destroy(GetComponent<Collider>());
                     Destroy(rigid);
-                    SoundManager.Instance.SFXPlay("Shield Impact 1");
+                    CombatImpactAudio.PlayExplosionAtPoint(hitPoint);
                     EnemyMotion.player = null;
                     Invoke("Dissolve", 4);
                     Invoke("OverUI", 4);
@@ -614,7 +634,8 @@ public class PlayerWorker : MonoBehaviour
                             Rigidbody rrigid = collider.gameObject.AddComponent<Rigidbody>();
                             rrigid.linearVelocity = Vector3.zero;
                             rrigid.angularVelocity = Vector3.zero;
-                            rrigid.AddForceAtPosition(collision.gameObject.GetComponent<Rigidbody>().linearVelocity, collision.contacts[0].point, ForceMode.Impulse);
+                            Vector3 ragdollImpulse = attacker.transform.forward * 3f;
+                            rrigid.AddForceAtPosition(ragdollImpulse, hitPoint, ForceMode.Impulse);
                             ConfigurableJoint joint = collider.gameObject.AddComponent<ConfigurableJoint>();
                             if (collider.gameObject.name != "Hips")
                             {
@@ -661,12 +682,19 @@ public class PlayerWorker : MonoBehaviour
             }
             else
             {
-                GameObject shield = Instantiate(shieldVFX, collision.contacts[0].point, Quaternion.LookRotation(transform.forward));
-                Destroy(shield, 0.3f);
-                SoundManager.Instance.SFXPlay("Shield Impact 2");
-                attacker.ApplyCombatKnockback(-attacker.transform.forward * 0.75f);
-                if (!entAnim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                    entAnim.CrossFade("Guarded", 0, 0);
+                // A successful guard uses the same contact blast as a hit for now,
+                // but rebounds the attacker rather than moving the defender.
+                Swordplay.Visuals.BrokenEdgeCombatImpactVfx.SpawnHit(transform, hitPoint);
+                CombatImpactAudio.PlayExplosionAtPoint(hitPoint);
+                Vector3 reboundDirection = attacker.transform.position - transform.position;
+                reboundDirection.y = 0f;
+                if (reboundDirection.sqrMagnitude < 0.0001f)
+                    reboundDirection = -transform.forward;
+                attacker.ApplyCombatKnockback(reboundDirection);
+                Animator attackerAnimator = attacker.GetComponent<Animator>();
+                if (attackerAnimator != null
+                    && !attackerAnimator.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
+                    attackerAnimator.CrossFade("Guarded", 0.25f, 0);
             }
         }
     }

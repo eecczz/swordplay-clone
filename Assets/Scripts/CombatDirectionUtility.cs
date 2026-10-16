@@ -2,6 +2,25 @@ using UnityEngine;
 
 public static class CombatDirectionUtility
 {
+    public static bool IsAttackStateActive(Animator animator, float hitStart, float hitEnd)
+    {
+        if (animator == null || !animator.isActiveAndEnabled)
+            return false;
+
+        if (IsAttackTime(animator.GetCurrentAnimatorStateInfo(0), hitStart, hitEnd))
+            return true;
+
+        return animator.IsInTransition(0)
+               && IsAttackTime(animator.GetNextAnimatorStateInfo(0), hitStart, hitEnd);
+    }
+
+    private static bool IsAttackTime(AnimatorStateInfo state, float hitStart, float hitEnd)
+    {
+        return state.IsName("Attack")
+               && state.normalizedTime >= hitStart
+               && state.normalizedTime <= hitEnd;
+    }
+
     public enum AttackSector
     {
         TopLeft,

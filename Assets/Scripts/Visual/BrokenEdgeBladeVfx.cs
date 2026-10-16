@@ -23,14 +23,14 @@ namespace Swordplay.Visuals
         private const string TrailShaderName = "Swordplay/Broken Edge Blade Trail";
         private const string BladeStartName = "Broken Edge Blade Start";
         private const string BladeTipName = "Broken Edge Blade Tip";
-        private const int CurrentPresetVersion = 8;
+        private const int CurrentPresetVersion = 9;
 
         [Header("Blade reference")]
         [SerializeField] private Transform ownerRoot;
         [SerializeField] private Transform bladeVisual;
         [SerializeField] private Transform bladeStartMarker;
         [SerializeField] private Transform bladeTipMarker;
-        [SerializeField, Range(0f, 0.35f)] private float gripTrim = 0.13f;
+        [SerializeField, Range(0f, 0.45f)] private float gripTrim = 0.315f;
         [SerializeField, Range(0f, 0.08f)] private float tipExtension = 0.01f;
         [Header("Blade cross-section")]
         [Tooltip("Glow expansion along the broad side of the blade.")]
@@ -78,10 +78,19 @@ namespace Swordplay.Visuals
         private Vector3 localThinAxis;
         private float bladeWideRadius;
         private float bladeThinRadius;
+        private Mesh fittedSourceMesh;
+        private SkinnedMeshRenderer fittedSkinnedRenderer;
+        private BoneWeight baseSkinWeight;
+        private BoneWeight middleSkinWeight;
+        private BoneWeight tipSkinWeight;
+        private bool hasSkinningData;
         private Vector3 previousTip;
         private bool hasPreviousTip;
         private bool trailMeshHasGeometry;
         private bool markerRefitRequired;
+        private bool auraShaderWarningLogged;
+        private bool edgeRibbonShaderWarningLogged;
+        private bool trailShaderWarningLogged;
 #if UNITY_EDITOR
         private bool rebuildQueued;
 #endif
@@ -95,10 +104,17 @@ namespace Swordplay.Visuals
 
         public bool Configure(Transform owner)
         {
+            return Configure(owner, null);
+        }
+
+        public bool Configure(Transform owner, Transform explicitBladeVisual)
+        {
             Transform target = null;
             TargetMatching matching = GetComponent<TargetMatching>();
             if (matching != null) target = matching.Target;
-            Transform resolvedVisual = FindBladeVisual(target);
+            Transform resolvedVisual = explicitBladeVisual != null
+                ? FindBladeVisual(explicitBladeVisual)
+                : FindBladeVisual(target);
 
             bool upgradePreset = presetVersion < CurrentPresetVersion;
             markerRefitRequired |= upgradePreset;
@@ -107,8 +123,11 @@ namespace Swordplay.Visuals
             if (resolvedVisual != null) bladeVisual = resolvedVisual;
             if (upgradePreset)
             {
-                gripTrim = 0.13f;
-                tipExtension = 0.01f;
+                // sword_01 contains the pommel, grip and guard in the same submesh.
+                // Geometry sampling places the first continuous blade section just
+                // past 31% of the full longitudinal span.
+                gripTrim = 0.315f;
+                tipExtension = 0f;
                 glowColor = new Color(0.03f, 1.5f, 2.5f, 0.94f);
                 coreColor = new Color(0.9f, 1.15f, 1.25f, 0.82f);
                 auraWidth = 0.034f;
@@ -146,6 +165,15 @@ namespace Swordplay.Visuals
             bool changed = false;
             bladeStartMarker = FindOrCreateMarker(bladeStartMarker, BladeStartName, fallbackBase, ref changed);
             bladeTipMarker = FindOrCreateMarker(bladeTipMarker, BladeTipName, fallbackTip, ref changed);
+            if (markerRefitRequired)
+            {
+                // Old preset versions could extend the start marker backwards by
+                // the submesh minimum on every refit. Reset both limits to the
+                // freshly measured blade span before refining the real apex.
+                bladeStartMarker.position = sourceRenderer.transform.TransformPoint(fallbackBase);
+                bladeTipMarker.position = sourceRenderer.transform.TransformPoint(fallbackTip);
+                changed = true;
+            }
             if (markerRefitRequired || changed)
             {
                 changed |= FitMarkersToBladeSubmesh(sourceMesh);
@@ -167,6 +195,7 @@ namespace Swordplay.Visuals
             if (auraObject == null) QueueAuraRebuild();
             if (!Application.isPlaying) return;
 
+            UpdateSkinnedBladeFrame();
             EnsureTrail();
             UpdateTrail();
         }
@@ -224,10 +253,11 @@ namespace Swordplay.Visuals
                 out localThinAxis,
                 out bladeWideRadius,
                 out bladeThinRadius);
+            CacheBladeSkinning(sourceMesh, bladeSubmesh);
 
-            Shader shader = Shader.Find(AuraShaderName);
-            Shader edgeShader = Shader.Find(EdgeRibbonShaderName);
-            if (shader == null || !shader.isSupported || edgeShader == null || !edgeShader.isSupported) return;
+            Shader shader = FindRequiredShader(AuraShaderName, ref auraShaderWarningLogged);
+            Shader edgeShader = FindRequiredShader(EdgeRibbonShaderName, ref edgeRibbonShaderWarningLogged);
+            if (shader == null || edgeShader == null) return;
             auraMaterial = CreateAuraMaterial(shader, true);
             auraMesh = CreateBladeOnlyMesh(sourceMesh, bladeSubmesh);
 
@@ -247,7 +277,7 @@ namespace Swordplay.Visuals
                 layer = sourceRenderer.gameObject.layer
             };
             edgeRibbonObject.transform.SetParent(sourceRenderer.transform, false);
-            CopyStaticRenderer(edgeRibbonMesh, edgeRibbonObject, edgeRibbonMaterial);
+            CopyRenderer(sourceRenderer, edgeRibbonMesh, edgeRibbonObject, edgeRibbonMaterial);
         }
 
         private void ResolveBladeRenderer()
@@ -393,10 +423,13 @@ namespace Swordplay.Visuals
             if (span.sqrMagnitude <= 0.0000001f) return false;
 
             Vector3 axis = span.normalized;
-            int bladeSubmesh = FindBladeSubmesh(mesh, currentBase, currentTip, out float bladeMin, out float bladeMax);
-            if (bladeSubmesh < 0 || bladeMax <= bladeMin) return false;
+            int bladeSubmesh = FindBladeSubmesh(mesh, currentBase, currentTip, out _, out float bladeMax);
+            if (bladeSubmesh < 0 || bladeMax <= 0f) return false;
 
-            Vector3 fittedBase = currentBase + axis * bladeMin;
+            // currentBase is already the blade-only limit produced by gripTrim.
+            // Never apply the negative submesh minimum here: sword_01 has one
+            // combined submesh, so doing that walks back across guard and grip.
+            Vector3 fittedBase = currentBase;
             Vector3 fittedTip = ResolveActualBladeTip(mesh, bladeSubmesh, currentBase, currentTip);
             bool changed = Vector3.SqrMagnitude(fittedBase - currentBase) > 0.00000001f
                            || Vector3.SqrMagnitude(fittedTip - currentTip) > 0.00000001f;
@@ -605,8 +638,126 @@ namespace Swordplay.Visuals
             mesh.normals = normals;
             mesh.uv = uv;
             mesh.triangles = triangles;
+            CopyNearestBoneWeights(sourceMesh, sourceIndices, vertices, mesh);
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        private static void CopyNearestBoneWeights(Mesh source, int[] sourceIndices, Vector3[] generatedVertices, Mesh destination)
+        {
+            BoneWeight[] sourceWeights = source.boneWeights;
+            Matrix4x4[] bindposes = source.bindposes;
+            Vector3[] sourceVertices = source.vertices;
+            if (sourceWeights == null || sourceWeights.Length != sourceVertices.Length || bindposes == null || bindposes.Length == 0)
+                return;
+
+            var unique = new HashSet<int>(sourceIndices);
+            var generatedWeights = new BoneWeight[generatedVertices.Length];
+            for (int generated = 0; generated < generatedVertices.Length; generated++)
+            {
+                int nearest = -1;
+                float nearestDistance = float.PositiveInfinity;
+                foreach (int sourceIndex in unique)
+                {
+                    float distance = Vector3.SqrMagnitude(sourceVertices[sourceIndex] - generatedVertices[generated]);
+                    if (distance >= nearestDistance) continue;
+                    nearestDistance = distance;
+                    nearest = sourceIndex;
+                }
+                if (nearest >= 0) generatedWeights[generated] = sourceWeights[nearest];
+            }
+            destination.bindposes = bindposes;
+            destination.boneWeights = generatedWeights;
+        }
+
+        private void CacheBladeSkinning(Mesh mesh, int bladeSubmesh)
+        {
+            fittedSourceMesh = mesh;
+            fittedSkinnedRenderer = sourceRenderer as SkinnedMeshRenderer;
+            hasSkinningData = false;
+            if (fittedSkinnedRenderer == null || mesh == null) return;
+
+            BoneWeight[] weights = mesh.boneWeights;
+            Vector3[] vertices = mesh.vertices;
+            Matrix4x4[] bindposes = mesh.bindposes;
+            if (weights == null || weights.Length != vertices.Length || bindposes == null || bindposes.Length == 0)
+                return;
+
+            int[] indices = mesh.GetIndices(bladeSubmesh);
+            baseSkinWeight = FindNearestBoneWeight(vertices, weights, indices, localBase);
+            middleSkinWeight = FindNearestBoneWeight(vertices, weights, indices, Vector3.Lerp(localBase, localTip, 0.5f));
+            tipSkinWeight = FindNearestBoneWeight(vertices, weights, indices, localTip);
+            hasSkinningData = true;
+        }
+
+        private static BoneWeight FindNearestBoneWeight(
+            Vector3[] vertices, BoneWeight[] weights, int[] indices, Vector3 point)
+        {
+            int nearest = indices.Length > 0 ? indices[0] : 0;
+            float nearestDistance = float.PositiveInfinity;
+            var unique = new HashSet<int>(indices);
+            foreach (int index in unique)
+            {
+                float distance = Vector3.SqrMagnitude(vertices[index] - point);
+                if (distance >= nearestDistance) continue;
+                nearestDistance = distance;
+                nearest = index;
+            }
+            return weights[Mathf.Clamp(nearest, 0, weights.Length - 1)];
+        }
+
+        private Vector3 TransformBladePoint(Vector3 localPoint, BoneWeight weights)
+        {
+            if (!hasSkinningData || fittedSkinnedRenderer == null || fittedSourceMesh == null)
+                return sourceRenderer.transform.TransformPoint(localPoint);
+
+            Matrix4x4[] bindposes = fittedSourceMesh.bindposes;
+            Transform[] bones = fittedSkinnedRenderer.bones;
+            Vector3 world = Vector3.zero;
+            float total = 0f;
+            AddBonePoint(ref world, ref total, localPoint, weights.boneIndex0, weights.weight0, bones, bindposes);
+            AddBonePoint(ref world, ref total, localPoint, weights.boneIndex1, weights.weight1, bones, bindposes);
+            AddBonePoint(ref world, ref total, localPoint, weights.boneIndex2, weights.weight2, bones, bindposes);
+            AddBonePoint(ref world, ref total, localPoint, weights.boneIndex3, weights.weight3, bones, bindposes);
+            return total > 0.0001f ? world / total : sourceRenderer.transform.TransformPoint(localPoint);
+        }
+
+        private static void AddBonePoint(
+            ref Vector3 result, ref float total, Vector3 localPoint, int boneIndex, float weight,
+            Transform[] bones, Matrix4x4[] bindposes)
+        {
+            if (weight <= 0f || boneIndex < 0 || boneIndex >= bones.Length || boneIndex >= bindposes.Length || bones[boneIndex] == null)
+                return;
+            result += (bones[boneIndex].localToWorldMatrix * bindposes[boneIndex]).MultiplyPoint3x4(localPoint) * weight;
+            total += weight;
+        }
+
+        private void UpdateSkinnedBladeFrame()
+        {
+            if (!hasSkinningData || auraMaterial == null || sourceRenderer == null) return;
+
+            Vector3 worldBase = TransformBladePoint(localBase, baseSkinWeight);
+            Vector3 worldTip = TransformBladePoint(localTip, tipSkinWeight);
+            Vector3 frameBase = sourceRenderer.transform.InverseTransformPoint(worldBase);
+            Vector3 frameTip = sourceRenderer.transform.InverseTransformPoint(worldTip);
+            Vector3 frameAxis = frameTip - frameBase;
+            float frameLength = frameAxis.magnitude;
+            if (frameLength <= 0.0001f) return;
+
+            Vector3 localMiddle = Vector3.Lerp(localBase, localTip, 0.5f);
+            Vector3 worldMiddle = TransformBladePoint(localMiddle, middleSkinWeight);
+            Vector3 worldWide = TransformBladePoint(localMiddle + localWideAxis * bladeWideRadius, middleSkinWeight);
+            Vector3 worldThin = TransformBladePoint(localMiddle + localThinAxis * bladeThinRadius, middleSkinWeight);
+            Vector3 frameWide = sourceRenderer.transform.InverseTransformVector(worldWide - worldMiddle);
+            Vector3 frameThin = sourceRenderer.transform.InverseTransformVector(worldThin - worldMiddle);
+
+            auraMaterial.SetVector("_BladeBaseOS", frameBase);
+            auraMaterial.SetVector("_BladeAxisOS", frameAxis / frameLength);
+            auraMaterial.SetVector("_BladeWideAxisOS", frameWide.sqrMagnitude > 0.000001f ? frameWide.normalized : localWideAxis);
+            auraMaterial.SetVector("_BladeThinAxisOS", frameThin.sqrMagnitude > 0.000001f ? frameThin.normalized : localThinAxis);
+            auraMaterial.SetFloat("_BladeLength", frameLength);
+            auraMaterial.SetFloat("_BladeWideRadius", Mathf.Max(0.002f, frameWide.magnitude));
+            auraMaterial.SetFloat("_BladeThinRadius", Mathf.Max(0.001f, frameThin.magnitude));
         }
 
         private static bool TryGetSourceMesh(Renderer renderer, out Mesh mesh)
@@ -647,15 +798,6 @@ namespace Swordplay.Visuals
             ConfigureOverlayRenderer(renderer);
         }
 
-        private static void CopyStaticRenderer(Mesh mesh, GameObject destination, Material material)
-        {
-            MeshFilter filter = destination.AddComponent<MeshFilter>();
-            MeshRenderer renderer = destination.AddComponent<MeshRenderer>();
-            filter.sharedMesh = mesh;
-            renderer.sharedMaterial = material;
-            ConfigureOverlayRenderer(renderer);
-        }
-
         private static void ConfigureOverlayRenderer(Renderer renderer)
         {
             renderer.shadowCastingMode = ShadowCastingMode.Off;
@@ -675,6 +817,14 @@ namespace Swordplay.Visuals
             Vector3 second = bounds.center + direction * extent;
 
             Vector3 ownerPosition = ownerRoot != null ? ownerRoot.position : transform.position;
+            if (ownerRoot != null)
+            {
+                Animator ownerAnimator = ownerRoot.GetComponent<Animator>();
+                Transform rightHand = ownerAnimator != null
+                    ? ownerAnimator.GetBoneTransform(HumanBodyBones.RightHand)
+                    : null;
+                if (rightHand != null) ownerPosition = rightHand.position;
+            }
             bool firstIsBase = Vector3.SqrMagnitude(renderer.transform.TransformPoint(first) - ownerPosition)
                                <= Vector3.SqrMagnitude(renderer.transform.TransformPoint(second) - ownerPosition);
             bladeBase = firstIsBase ? first : second;
@@ -685,11 +835,31 @@ namespace Swordplay.Visuals
             bladeTip -= span.normalized * Mathf.Min(tipExtension, span.magnitude * 0.05f);
         }
 
+        private Shader FindRequiredShader(string shaderName, ref bool warningLogged)
+        {
+            Shader shader = Shader.Find(shaderName);
+            if (shader != null && shader.isSupported)
+            {
+                warningLogged = false;
+                return shader;
+            }
+
+            if (!warningLogged)
+            {
+                string reason = shader == null ? "was not included in the player build" : "is not supported";
+                Debug.LogError($"Broken Edge blade VFX shader '{shaderName}' {reason}. " +
+                               "Keep this shader in Graphics Settings > Always Included Shaders.", this);
+                warningLogged = true;
+            }
+
+            return null;
+        }
+
         private void EnsureTrail()
         {
             if (trailObject != null || sourceRenderer == null) return;
-            Shader shader = Shader.Find(TrailShaderName);
-            if (shader == null || !shader.isSupported) return;
+            Shader shader = FindRequiredShader(TrailShaderName, ref trailShaderWarningLogged);
+            if (shader == null) return;
 
             trailMaterial = CreateTrailMaterial(shader);
             trailMesh = new Mesh { name = "Broken Edge Short Blade Trail Mesh" };
@@ -715,8 +885,8 @@ namespace Swordplay.Visuals
             // The shader separates this complete span into individual cylindrical
             // flame roots. Keeping the full span here lets every cylinder inherit
             // motion history and stretch, while the shader prevents a solid sheet.
-            Vector3 bladeBase = sourceRenderer.transform.TransformPoint(localBase);
-            Vector3 bladeTip = sourceRenderer.transform.TransformPoint(localTip);
+            Vector3 bladeBase = TransformBladePoint(localBase, baseSkinWeight);
+            Vector3 bladeTip = TransformBladePoint(localTip, tipSkinWeight);
             float speed = hasPreviousTip
                 ? Vector3.Distance(bladeTip, previousTip) / Mathf.Max(Time.deltaTime, 0.0001f)
                 : 0f;
@@ -886,6 +1056,9 @@ namespace Swordplay.Visuals
             auraMaterial = null;
             edgeRibbonMaterial = null;
             sourceRenderer = null;
+            fittedSourceMesh = null;
+            fittedSkinnedRenderer = null;
+            hasSkinningData = false;
         }
 
         private static void DestroyOwned(Object value)

@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: M_WarriorBrokenEdge_04
+  m_Shader: {fileID: 4800000, guid: 0fa87d7af2cb4bce9cf0bf44254a7821, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 1ed8b1f3e8951bc40a7d725b1705d94d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _ColorSteps: 5
+    - _Cull: 2
+    - _Cutoff: 0.01
+    - _DstBlend: 0
+    - _LightTintStrength: 0.18
+    - _OutlineWidth: 0.012
+    - _PaperStrength: 0.025
+    - _RimStrength: 0.2
+    - _Saturation: 1.12
+    - _ShadowStrength: 0.66
+    - _SrcBlend: 1
+    - _TextureContrast: 1.08
+    - _ZWrite: 1
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _LightTint: {r: 1, g: 0.5572, b: 0.7948, a: 1}
+    - _OutlineColor: {r: 0.07999998, g: 0.014399998, b: 0.04959999, a: 1}
+    - _RimColor: {r: 1, g: 0.7376, b: 0.8784, a: 1}
+    - _ShadowColor: {r: 0.28719997, g: 0.061199997, b: 0.21319999, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
