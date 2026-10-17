@@ -103,7 +103,11 @@ Shader "Swordplay/Broken Edge Blade Aura"
                 clip(_BladeLength + _BladeClipSoftness - along);
                 float wide = dot(relative, _BladeWideAxisOS.xyz) / max(_BladeWideRadius, 0.0001);
                 float thin = dot(relative, _BladeThinAxisOS.xyz) / max(_BladeThinRadius, 0.0001);
-                clip(1.0 - (wide * wide + thin * thin));
+                // A marker can sit on an asymmetric blade edge rather than its exact
+                // centreline. Relax only the first fifth of the blade so that valid
+                // geometry reaches the authored start marker without outlining the hilt.
+                float baseRelax = lerp(2.6, 1.0, saturate(along / max(_BladeLength * 0.2, 0.0001)));
+                clip(baseRelax * baseRelax - (wide * wide + thin * thin));
             }
 
             Varyings VertOutline(Attributes input)
@@ -186,7 +190,8 @@ Shader "Swordplay/Broken Edge Blade Aura"
                 clip(_BladeLength + _BladeClipSoftness - along);
                 float wide = dot(relative, _BladeWideAxisOS.xyz) / max(_BladeWideRadius, 0.0001);
                 float thin = dot(relative, _BladeThinAxisOS.xyz) / max(_BladeThinRadius, 0.0001);
-                clip(1.0 - (wide * wide + thin * thin));
+                float baseRelax = lerp(2.6, 1.0, saturate(along / max(_BladeLength * 0.2, 0.0001)));
+                clip(baseRelax * baseRelax - (wide * wide + thin * thin));
             }
 
             Varyings VertCore(Attributes input)

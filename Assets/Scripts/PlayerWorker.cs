@@ -73,6 +73,8 @@ public class PlayerWorker : MonoBehaviour
     [SerializeField, Min(0.1f)] private float headLookSpeed = 12f;
     private Vector3 smoothedHeadLookDirection;
     private bool headLookDirectionInitialized;
+    private Quaternion headAxisCorrection;
+    private bool headAxisCorrectionInitialized;
     [SerializeField] private float movementSpeed = 5f;
     [Header("Automatic NavMesh pursuit")]
     [SerializeField, Min(0.1f)] private float navigationTargetRefreshInterval = 0.25f;
@@ -102,10 +104,6 @@ public class PlayerWorker : MonoBehaviour
      add components, legs animator - ik hint mode -> onGoal*/
     private void Awake()
     {
-        ConfigurableJoint legacyRootJoint = GetComponent<ConfigurableJoint>();
-        if (legacyRootJoint != null)
-            Destroy(legacyRootJoint);
-
         player = transform;
         Time.timeScale = 1.0f;
         endUI.gameObject.SetActive(false);
@@ -113,17 +111,7 @@ public class PlayerWorker : MonoBehaviour
         Cursor.visible = false;
         anim = animatorOverride != null ? animatorOverride : GetComponent<Animator>();
         playerAnimator = anim;
-        if (ma != null)
-        {
-            ma.weight = 0f;
-            ma.enabled = false;
-            MultiParentConstraint headParent = ma.GetComponent<MultiParentConstraint>();
-            if (headParent != null)
-            {
-                headParent.weight = 0f;
-                headParent.enabled = false;
-            }
-        }
+        InitializeHeadAxisCorrection();
         TargetMatching weaponTarget = GetComponentInChildren<TargetMatching>(true);
         psword = weaponTarget != null ? weaponTarget.transform : null;
         if (sword == null) sword = psword;
@@ -192,16 +180,6 @@ public class PlayerWorker : MonoBehaviour
                 closest = go;
                 ent = closest;
                 distance = curDistance;
-                if (closest != null)
-                {
-                    if (ma.data.sourceObjects[0].transform != closest.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head))
-                    {
-                        var data = ma.data.sourceObjects;
-                        data.SetTransform(0, closest.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head));
-                        ma.data.sourceObjects = data;
-                        rb.Build();
-                    }
-                }
             }
         }
         return closest;
@@ -265,13 +243,6 @@ public class PlayerWorker : MonoBehaviour
         IsGoal();
         if (isEnd)
             Time.timeScale = Mathf.Lerp(Time.timeScale, 0.5f, 0.01f);
-        if (!onTarget && ma.data.sourceObjects[0].transform != crosshead)
-        {
-            var data = ma.data.sourceObjects;
-            data.SetTransform(0, crosshead);
-            ma.data.sourceObjects = data;
-            rb.Build();
-        }
         /*else if(onTarget && ma.data.sourceObjects[0].transform == crosshead)
         {
             var data = ma.data.sourceObjects;
@@ -336,7 +307,6 @@ public class PlayerWorker : MonoBehaviour
             anim.CrossFade("Attack", 0f, 0);
             anim.CrossFade("Attack", 0f, 1);
             SoundManager.Instance.SFXPlay("Swing1");
-            ma.weight = 0;
         }
         if (anim.GetCurrentAnimatorStateInfo(0).IsName("Attack") && ent != null && !entAnim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && health > -1)
         {
@@ -350,7 +320,6 @@ public class PlayerWorker : MonoBehaviour
             if (swing == 1)
             {
                 swing = 0;
-                ma.weight = 1;
             }
         }
         if (!onTarget)
@@ -507,10 +476,6 @@ public class PlayerWorker : MonoBehaviour
 
     private void ConfigurePhysicalRoot()
     {
-        foreach (NavMeshAgent childAgent in GetComponentsInChildren<NavMeshAgent>(true))
-            if (childAgent.gameObject != gameObject)
-                childAgent.enabled = false;
-
         if (body != null && body.TryGetComponent(out Rigidbody balanceBody))
         {
             balanceBody.useGravity = false;
@@ -521,51 +486,14 @@ public class PlayerWorker : MonoBehaviour
     private NavMeshAgent ResolveRootAgent()
     {
         NavMeshAgent rootAgent = GetComponent<NavMeshAgent>();
-        NavMeshAgent source = rootAgent;
-        foreach (NavMeshAgent candidate in GetComponentsInChildren<NavMeshAgent>(true))
-        {
-            if (candidate.gameObject != gameObject && source == null)
-                source = candidate;
-        }
-
         if (rootAgent == null)
-        {
-            rootAgent = gameObject.AddComponent<NavMeshAgent>();
-            if (source != null)
-            {
-                rootAgent.agentTypeID = source.agentTypeID;
-                rootAgent.radius = source.radius;
-                rootAgent.height = source.height;
-                rootAgent.baseOffset = source.baseOffset;
-                rootAgent.areaMask = source.areaMask;
-            }
-        }
-
-        foreach (NavMeshAgent candidate in GetComponentsInChildren<NavMeshAgent>(true))
-            if (candidate != rootAgent)
-                candidate.enabled = false;
+            Debug.LogError($"{name}: NavMeshAgent must be serialized on the PlayerWorker root.", this);
         return rootAgent;
     }
 
     private void ConfigureNavigationAgent()
     {
         if (nav == null) return;
-
-        navigationStoppingDistance = Mathf.Max(2.4f, navigationStoppingDistance);
-        navigationResumeDistance = Mathf.Max(navigationStoppingDistance + 1f,
-            navigationResumeDistance);
-        nav.speed = movementSpeed;
-        nav.acceleration = Mathf.Max(12f, movementSpeed * 4f);
-        nav.angularSpeed = 0f;
-        nav.updatePosition = true;
-        nav.updateRotation = false;
-        nav.autoBraking = true;
-        nav.autoRepath = true;
-        nav.autoTraverseOffMeshLink = true;
-        // The destination itself is already offset from the enemy by the combat distance.
-        // Keep the agent's own stopping distance small so the two distances do not stack.
-        nav.stoppingDistance = 0.1f;
-        nav.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
 
         if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, nav.areaMask))
             nav.Warp(hit.position);
@@ -848,15 +776,30 @@ public class PlayerWorker : MonoBehaviour
         direction.Normalize();
         if (!headLookDirectionInitialized)
         {
-            smoothedHeadLookDirection = transform.forward;
+            smoothedHeadLookDirection = direction;
             headLookDirectionInitialized = true;
         }
 
         float blend = 1f - Mathf.Exp(-headLookSpeed * Time.deltaTime);
         smoothedHeadLookDirection = Vector3.Slerp(smoothedHeadLookDirection, direction, blend).normalized;
-        Quaternion animatedHeadRotation = head.rotation;
-        Quaternion lookDelta = Quaternion.FromToRotation(transform.forward, smoothedHeadLookDirection);
-        head.rotation = lookDelta * animatedHeadRotation;
+        // The modular humanoid head bone does not use the character root's forward axis.
+        // Build the final orientation from the authored per-model correction instead of
+        // preserving the current animation's pitch. Otherwise the selected attacker keeps
+        // the Attack clip's downward head pitch and appears to stare at the floor.
+        if (!headAxisCorrectionInitialized)
+            InitializeHeadAxisCorrection();
+        head.rotation = Quaternion.LookRotation(smoothedHeadLookDirection, Vector3.up)
+                        * headAxisCorrection;
+    }
+
+    private void InitializeHeadAxisCorrection()
+    {
+        Transform head = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
+        if (head == null) return;
+        headAxisCorrection = headRotOffset.sqrMagnitude > 0.0001f
+            ? Quaternion.Euler(headRotOffset)
+            : Quaternion.Inverse(Quaternion.LookRotation(transform.forward, Vector3.up)) * head.rotation;
+        headAxisCorrectionInitialized = true;
     }
 
     public void ReceiveSwordHit(EnemyWorker attacker, Collider weaponCollider, Collider bodyCollider,

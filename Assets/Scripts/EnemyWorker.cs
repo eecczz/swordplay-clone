@@ -43,6 +43,8 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField, Min(0.1f)] private float headLookSpeed = 12f;
     private Vector3 smoothedHeadLookDirection;
     private bool headLookDirectionInitialized;
+    private Quaternion headAxisCorrection;
+    private bool headAxisCorrectionInitialized;
     [SerializeField] private int guardRate = 20;
     [SerializeField] private int health = 2;
     [SerializeField] private float movementSpeed = 5f;
@@ -121,17 +123,13 @@ public class EnemyWorker : MonoBehaviour
     private void Awake()
     {
         slotPathProbe = new NavMeshPath();
-        ConfigurableJoint legacyRootJoint = GetComponent<ConfigurableJoint>();
-        if (legacyRootJoint != null)
-            Destroy(legacyRootJoint);
-
         anim = GetComponent<Animator>();
         if (anim != null)
         {
             anim.applyRootMotion = false;
             AnchorSimpleWeaponUnderRightSocket();
         }
-        RebindHeadConstraints();
+        InitializeHeadAxisCorrection();
     }
 
     private void AnchorSimpleWeaponUnderRightSocket()
@@ -187,35 +185,6 @@ public class EnemyWorker : MonoBehaviour
         if (leftArmIK != null) leftArmIK.weight = 0f;
     }
 
-    private void RebindHeadConstraints()
-    {
-        if (anim == null || ma == null)
-            return;
-
-        Transform head = anim.GetBoneTransform(HumanBodyBones.Head);
-        if (head == null)
-            return;
-
-        MultiAimConstraintData aimData = ma.data;
-        aimData.constrainedObject = head;
-        ma.data = aimData;
-        ma.weight = 0f;
-        ma.enabled = false;
-
-        // HeadLayer에는 시선용 MultiAim과 위치 추종용 MultiParent가 같이 있다.
-        // 복제된 적에서 두 constraint가 다른 캐릭터의 Head를 참조하면
-        // RigBuilder 전체 빌드가 실패해 무기 블렌드와 양손 IK도 모두 멈춘다.
-        MultiParentConstraint headParent = ma.GetComponent<MultiParentConstraint>();
-        if (headParent != null)
-        {
-            MultiParentConstraintData parentData = headParent.data;
-            parentData.constrainedObject = head;
-            headParent.data = parentData;
-            headParent.weight = 0f;
-            headParent.enabled = false;
-        }
-    }
-
     // Start is called before the first frame update
     private void Start()
     {
@@ -239,7 +208,7 @@ public class EnemyWorker : MonoBehaviour
         audioSource = GetComponent<AudioSource>();
         playerAnim = PlayerWorker.playerAnimator != null
             ? PlayerWorker.playerAnimator
-            : PlayerWorker.player.GetComponent<Animator>();
+            : PlayerWorker.player != null ? PlayerWorker.player.GetComponent<Animator>() : null;
         rigid = GetComponent<Rigidbody>();
         if (rigid == null) rigid = gameObject.AddComponent<Rigidbody>();
         movementCapsule = GetComponent<CapsuleCollider>();
@@ -247,25 +216,8 @@ public class EnemyWorker : MonoBehaviour
         if (characterController == null)
             characterController = gameObject.AddComponent<CharacterController>();
         ConfigureCharacterController();
-        // Keep the formation outside the player's personal space. The player uses a
-        // separate stop/resume band, so this radius no longer creates a mutual chase loop.
-        engagementRadius = Mathf.Clamp(engagementRadius, 2.7f, 3.0f);
-        additionalRingSpacing = Mathf.Min(additionalRingSpacing, 1.5f);
         if (nav != null)
         {
-            nav.speed = movementSpeed;
-            nav.acceleration = Mathf.Max(12f, movementSpeed * 4f);
-            nav.angularSpeed = 0f;
-            nav.updatePosition = true;
-            nav.updateRotation = false;
-            nav.autoBraking = true;
-            nav.autoRepath = true;
-            nav.autoTraverseOffMeshLink = true;
-            nav.stoppingDistance = 0.25f;
-            // Formation slots keep final positions separate. Disabling local avoidance prevents
-            // several agents from deadlocking each other in narrow paths.
-            nav.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
-            nav.avoidancePriority = 20 + GetAssignedSlot() % 70;
             PlaceAgentOnNavMesh();
             previousNavPosition = transform.position;
         }
@@ -286,10 +238,6 @@ public class EnemyWorker : MonoBehaviour
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
         rb = GetComponent<RigBuilder>();
-        var data = ma.data.sourceObjects;
-        data.SetTransform(0, playerAnim.GetBoneTransform(HumanBodyBones.Head));
-        ma.data.sourceObjects = data;
-        rb.Build();
         rightTemp = new GameObject("RightTemp");
         leftTemp = new GameObject("LeftTemp");
         IgnoreCombatantMovementCollisions();
@@ -321,35 +269,8 @@ public class EnemyWorker : MonoBehaviour
     private NavMeshAgent ResolveRootAgent()
     {
         NavMeshAgent rootAgent = GetComponent<NavMeshAgent>();
-        NavMeshAgent[] allAgents = GetComponentsInChildren<NavMeshAgent>(true);
-        NavMeshAgent source = rootAgent;
-        foreach (NavMeshAgent candidate in allAgents)
-        {
-            if (candidate.gameObject != gameObject && source == null)
-                source = candidate;
-        }
-
-        if (rootAgent == null && source != null)
-        {
-            bool sourceWasEnabled = source.enabled;
-            source.enabled = false;
-            rootAgent = gameObject.AddComponent<NavMeshAgent>();
-            rootAgent.agentTypeID = source.agentTypeID;
-            rootAgent.radius = source.radius;
-            rootAgent.height = source.height;
-            rootAgent.baseOffset = source.baseOffset;
-            rootAgent.areaMask = source.areaMask;
-            rootAgent.obstacleAvoidanceType = source.obstacleAvoidanceType;
-            rootAgent.avoidancePriority = source.avoidancePriority;
-            rootAgent.enabled = sourceWasEnabled;
-        }
-
-        foreach (NavMeshAgent candidate in allAgents)
-        {
-            if (candidate != rootAgent)
-                candidate.enabled = false;
-        }
-
+        if (rootAgent == null)
+            Debug.LogError($"{name}: NavMeshAgent must be serialized on the EnemyWorker root.", this);
         return rootAgent;
     }
 
@@ -414,15 +335,6 @@ public class EnemyWorker : MonoBehaviour
             }
         }
 
-        // ma 소스 재지정(플레이어 없을 때)
-        if (PlayerWorker.player == null && ma.data.sourceObjects[0].transform != crosshead)
-        {
-            var data = ma.data.sourceObjects;
-            data.SetTransform(0, crosshead);
-            ma.data.sourceObjects = data;
-            rb.Build();
-        }
-
         UpdateNavigation(dt);
 
         // -------- cool1: 조준 보정 타이머(초) --------
@@ -477,7 +389,6 @@ public class EnemyWorker : MonoBehaviour
                     attackSequence++;
                     anim.CrossFade("Attack", 0f, 0);
                     anim.CrossFade("Attack", 0f, 1);
-                    ma.weight = 0f;
                     swing = 1;
 
                     // 반대 방향으로 목표 갱신
@@ -504,7 +415,6 @@ public class EnemyWorker : MonoBehaviour
             {
                 coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
                 swing = 0;
-                ma.weight = 1f;
             }
         }
 
@@ -987,15 +897,29 @@ public class EnemyWorker : MonoBehaviour
         direction.Normalize();
         if (!headLookDirectionInitialized)
         {
-            smoothedHeadLookDirection = transform.forward;
+            smoothedHeadLookDirection = direction;
             headLookDirectionInitialized = true;
         }
 
         float blend = 1f - Mathf.Exp(-headLookSpeed * Time.deltaTime);
         smoothedHeadLookDirection = Vector3.Slerp(smoothedHeadLookDirection, direction, blend).normalized;
-        Quaternion animatedHeadRotation = head.rotation;
-        Quaternion lookDelta = Quaternion.FromToRotation(transform.forward, smoothedHeadLookDirection);
-        head.rotation = lookDelta * animatedHeadRotation;
+        // Use the serialized model-axis correction and fully replace the clip's head pitch.
+        // The current attacker plays an animation that pitches the head down; applying only
+        // a root-forward delta leaves that pitch intact and makes the ent stare at the floor.
+        if (!headAxisCorrectionInitialized)
+            InitializeHeadAxisCorrection();
+        head.rotation = Quaternion.LookRotation(smoothedHeadLookDirection, Vector3.up)
+                        * headAxisCorrection;
+    }
+
+    private void InitializeHeadAxisCorrection()
+    {
+        Transform head = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
+        if (head == null) return;
+        headAxisCorrection = headRotOffset.sqrMagnitude > 0.0001f
+            ? Quaternion.Euler(headRotOffset)
+            : Quaternion.Inverse(Quaternion.LookRotation(transform.forward, Vector3.up)) * head.rotation;
+        headAxisCorrectionInitialized = true;
     }
 
     public void ReceiveSwordHit(PlayerWorker attacker, Collider weaponCollider, Collider bodyCollider,
