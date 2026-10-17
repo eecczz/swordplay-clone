@@ -148,7 +148,7 @@ public class EnemyMotion : MonoBehaviour
                 {
                     if (PlayerMotion.ent.transform == transform)
                     {
-                        anim.CrossFadeInFixedTime("Attack", 0.25f, 0);
+                        anim.CrossFade("Attack", 0f, 0);
                         swing = 1;
                         GetComponent<LegsAnimator>().UseGluing = false;
                         Physics.IgnoreLayerCollision(6, 9, false);
@@ -166,7 +166,7 @@ public class EnemyMotion : MonoBehaviour
                 {
                     if (PlayerMotion.ent.transform == transform)
                     {
-                        anim.CrossFadeInFixedTime("Attack", 0.25f, 0);
+                        anim.CrossFade("Attack", 0f, 0);
                         swing = 1;
                         GetComponent<LegsAnimator>().UseGluing = false;
                         Physics.IgnoreLayerCollision(6, 9, false);
@@ -248,7 +248,7 @@ public class EnemyMotion : MonoBehaviour
         if (angle < 10f && GetComponent<Rigidbody>().angularVelocity.magnitude < 0.1f && anim.GetCurrentAnimatorStateInfo(1).IsName("Hurted"))
         {
             GetComponent<LegsAnimator>().UseGluing = true;
-            anim.CrossFadeInFixedTime("Idle", 0.25f, 1);
+            anim.CrossFade("Idle", 0f, 1);
             GetComponent<Animator>().applyRootMotion = true;
             GetComponent<RigBuilder>().enabled = true;
         }
@@ -313,7 +313,7 @@ public class EnemyMotion : MonoBehaviour
                     var limit2 = joint.angularZLimit;
                     limit2.limit = 90;
                     joint.angularZLimit = limit2;
-                    anim.CrossFadeInFixedTime("Hurted", 0.25f, 1);
+                    anim.CrossFade("Hurted", 0f, 1);
                     anim.applyRootMotion = false;
                     GetComponent<RigBuilder>().enabled = false;
                     GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
@@ -442,7 +442,7 @@ public class EnemyMotion : MonoBehaviour
                         var limit2 = joint.angularZLimit;
                         limit2.limit = 90;
                         joint.angularZLimit = limit2;
-                        anim.CrossFadeInFixedTime("Hurted", 0.25f, 1);
+                        anim.CrossFade("Hurted", 0f, 1);
                         anim.applyRootMotion = false;
                         GetComponent<RigBuilder>().enabled = false;
                         GameObject hit = Instantiate(hitVFX, collision.contacts[0].point, Quaternion.LookRotation(anim.GetBoneTransform(HumanBodyBones.Neck).position - collision.contacts[0].point));
@@ -554,7 +554,7 @@ public class EnemyMotion : MonoBehaviour
                     SoundManager.Instance.SFXPlay("Shield Impact 2");
                     player.position -= player.forward;
                     if (!player.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                        player.GetComponent<Animator>().CrossFadeInFixedTime("Guarded", 0.25f, 0);
+                        player.GetComponent<Animator>().CrossFade("Guarded", 0f, 0);
                 }
             }
         }

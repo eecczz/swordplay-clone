@@ -30,6 +30,9 @@ public class TargetMatching : RigidbodyMatchingBase
 
     protected override void FixedUpdate()
     {
+        if (Target == null)
+            return;
+
         SetTargetPlacement(Target);
 
         base.FixedUpdate();

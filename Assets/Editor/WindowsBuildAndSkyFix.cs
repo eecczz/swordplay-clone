@@ -7,6 +7,7 @@ using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
@@ -74,8 +75,18 @@ public static class WindowsBuildAndSkyFix
     [MenuItem("Tools/Swordplay/Build And Run Windows")]
     public static void BuildAndRunWindows()
     {
+        GroundActivePlayerToSurface();
+        BrokenEdgeNavMeshBaker.BakeLaunchScene();
         FixStandaloneSky();
-        KnightEnemyInstaller.InstallRocketOnActiveBowEnemy();
+        Scene launchScene = SceneManager.GetActiveScene();
+        bool hasActiveBowEnemy = launchScene.GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<EnemyWorker>(true))
+            .Any(enemy => enemy.gameObject.activeInHierarchy &&
+                          enemy.name.StartsWith("WM_Master_Unity_Bow2", StringComparison.OrdinalIgnoreCase));
+        if (hasActiveBowEnemy)
+            KnightEnemyInstaller.InstallRocketOnActiveBowEnemy();
+        else
+            Debug.Log("[Windows Build] No active BOW enemy; preserving the modular roster's existing rocket VFX.");
         CreateIndependentBowEnemyMaterials();
 
         string[] scenes = EditorBuildSettings.scenes
@@ -104,6 +115,146 @@ public static class WindowsBuildAndSkyFix
         Debug.Log($"[Windows Build] COMPLETE — {BuildPath}, {report.summary.totalSize} bytes");
     }
 
+    [MenuItem("Tools/Swordplay/Ground Active Player")]
+    public static void GroundActivePlayerToSurface()
+    {
+        Scene scene = SceneManager.GetActiveScene();
+        if (!scene.IsValid() || scene.path != ScenePath)
+            scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+
+        PlayerWorker[] activePlayers = scene.GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<PlayerWorker>(true))
+            .Where(value => value.gameObject.activeInHierarchy)
+            .ToArray();
+        PlayerWorker player = activePlayers.FirstOrDefault(value => value.CompareTag("Player"))
+            ?? activePlayers.FirstOrDefault();
+        if (player == null)
+            throw new InvalidOperationException("No active PlayerWorker was found in the launch scene.");
+
+        Transform playerTransform = player.transform;
+        CapsuleCollider movementCapsule = player.GetComponent<CapsuleCollider>();
+        CharacterController controller = player.GetComponent<CharacterController>();
+        float currentBottom;
+        if (movementCapsule != null)
+        {
+            Vector3 worldCenter = playerTransform.TransformPoint(movementCapsule.center);
+            float verticalScale = Mathf.Abs(playerTransform.lossyScale.y);
+            currentBottom = worldCenter.y - movementCapsule.height * verticalScale * 0.5f;
+        }
+        else if (controller != null)
+        {
+            Vector3 worldCenter = playerTransform.TransformPoint(controller.center);
+            float verticalScale = Mathf.Abs(playerTransform.lossyScale.y);
+            currentBottom = worldCenter.y - controller.height * verticalScale * 0.5f;
+        }
+        else
+        {
+            currentBottom = playerTransform.position.y;
+        }
+
+        Collider[] ownColliders = player.GetComponentsInChildren<Collider>(true);
+        bool[] enabledStates = ownColliders.Select(value => value.enabled).ToArray();
+        for (int index = 0; index < ownColliders.Length; index++)
+            ownColliders[index].enabled = false;
+        Physics.SyncTransforms();
+
+        Vector3 rayOrigin = new Vector3(playerTransform.position.x, currentBottom + 500f, playerTransform.position.z);
+        RaycastHit[] candidates = Physics.RaycastAll(rayOrigin, Vector3.down, 1000f, ~0, QueryTriggerInteraction.Ignore);
+        RaycastHit? groundHit = candidates
+            .Where(hit => hit.normal.y >= Mathf.Cos(60f * Mathf.Deg2Rad) && IsWalkableEnvironmentSurface(hit.collider))
+            .OrderBy(hit => Mathf.Abs(hit.point.y - currentBottom))
+            .Cast<RaycastHit?>()
+            .FirstOrDefault();
+
+        // Some edited showcase scenes leave the active player completely outside the floor
+        // footprint, so changing Y alone can never find ground. In that case, locate the
+        // nearest upward-facing collider surface and move XZ to that surface as well.
+        if (!groundHit.HasValue)
+        {
+            HashSet<Collider> ownSet = new HashSet<Collider>(ownColliders);
+            var nearbySurfaces = new List<(RaycastHit hit, float score)>();
+            foreach (Collider candidate in scene.GetRootGameObjects()
+                         .SelectMany(root => root.GetComponentsInChildren<Collider>(true)))
+            {
+                if (candidate == null || ownSet.Contains(candidate) || !candidate.enabled || candidate.isTrigger ||
+                    !candidate.gameObject.activeInHierarchy ||
+                    candidate.GetComponentInParent<PlayerWorker>() != null ||
+                    candidate.GetComponentInParent<EnemyWorker>() != null ||
+                    !IsWalkableEnvironmentSurface(candidate))
+                    continue;
+
+                Bounds bounds = candidate.bounds;
+                if (bounds.size.x * bounds.size.z < 0.5f)
+                    continue;
+                Vector3 sample = new Vector3(
+                    Mathf.Clamp(playerTransform.position.x, bounds.min.x + 0.01f, bounds.max.x - 0.01f),
+                    bounds.max.y + 1f,
+                    Mathf.Clamp(playerTransform.position.z, bounds.min.z + 0.01f, bounds.max.z - 0.01f));
+                if (!candidate.Raycast(new Ray(sample, Vector3.down), out RaycastHit hit, bounds.size.y + 2f) ||
+                    hit.normal.y < Mathf.Cos(60f * Mathf.Deg2Rad))
+                    continue;
+
+                float horizontalDistance = Vector2.Distance(
+                    new Vector2(playerTransform.position.x, playerTransform.position.z),
+                    new Vector2(hit.point.x, hit.point.z));
+                float score = horizontalDistance + Mathf.Abs(hit.point.y - currentBottom) * 0.05f;
+                nearbySurfaces.Add((hit, score));
+            }
+
+            if (nearbySurfaces.Count > 0)
+                groundHit = nearbySurfaces.OrderBy(value => value.score).First().hit;
+        }
+
+        for (int index = 0; index < ownColliders.Length; index++)
+            ownColliders[index].enabled = enabledStates[index];
+
+        if (!groundHit.HasValue)
+            throw new InvalidOperationException($"No walkable ground was found below/above active player '{player.name}'.");
+
+        Vector3 before = playerTransform.position;
+        float skin = controller != null ? Mathf.Max(0.02f, controller.skinWidth) : 0.03f;
+        Vector3 groundedPosition = playerTransform.position;
+        groundedPosition.x = groundHit.Value.point.x;
+        groundedPosition.z = groundHit.Value.point.z;
+        groundedPosition.y += groundHit.Value.point.y - currentBottom + skin;
+        if (NavMesh.SamplePosition(groundedPosition, out NavMeshHit navHit, 5f, NavMesh.AllAreas))
+        {
+            float rootToBottom = playerTransform.position.y - currentBottom;
+            groundedPosition.x = navHit.position.x;
+            groundedPosition.z = navHit.position.z;
+            groundedPosition.y = navHit.position.y + rootToBottom + skin;
+        }
+        playerTransform.position = groundedPosition;
+        Physics.SyncTransforms();
+        EditorUtility.SetDirty(playerTransform);
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+
+        string line =
+            $"Player={player.name}\n" +
+            $"PlayerBefore={before.x:F4},{before.y:F4},{before.z:F4}\n" +
+            $"PlayerAfter={playerTransform.position.x:F4},{playerTransform.position.y:F4},{playerTransform.position.z:F4}\n" +
+            $"GroundY={groundHit.Value.point.y:F4}\n" +
+            $"GroundCollider={groundHit.Value.collider.name}\n";
+        File.WriteAllText("Library/PlayerGroundingReport.txt", line);
+        Debug.Log($"[Player Grounding] {player.name}: {before} -> {playerTransform.position}, ground={groundHit.Value.collider.name}");
+    }
+
+    private static bool IsWalkableEnvironmentSurface(Collider candidate)
+    {
+        for (Transform current = candidate.transform; current != null; current = current.parent)
+        {
+            string name = current.name.ToLowerInvariant();
+            if (name.Contains("column") || name.Contains("pillar") || name.Contains("wall"))
+                return false;
+            if (name.Contains("floor") || name.Contains("ground") || name.Contains("stair") ||
+                name.Contains("bridge") || name.Contains("platform") || name.Contains("walk") ||
+                name.Contains("ramp"))
+                return true;
+        }
+        return false;
+    }
+
     [MenuItem("Tools/Swordplay/Separate BOW Enemy Materials")]
     public static void CreateIndependentBowEnemyMaterials()
     {
@@ -119,7 +270,11 @@ public static class WindowsBuildAndSkyFix
             .Where(enemy => enemy.name.StartsWith("WM_Master_Unity_Bow2", StringComparison.OrdinalIgnoreCase))
             .ToArray();
         if (bows.Length == 0)
-            throw new InvalidOperationException("No BOW enemy was found for material separation.");
+        {
+            File.AppendAllText(ReportPath, "EnemyMaterialRoots=0 (modular roster; skipped BOW material separation)\n");
+            Debug.Log("[BOW Enemy Materials] No BOW enemy exists in the scene; nothing to separate.");
+            return;
+        }
 
         var copies = new Dictionary<Material, Material>();
         int rendererCount = 0;
@@ -171,9 +326,12 @@ public static class WindowsBuildAndSkyFix
             }
         }
 
-        EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene);
-        AssetDatabase.SaveAssets();
+        if (rendererCount > 0)
+        {
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            AssetDatabase.SaveAssets();
+        }
         File.AppendAllText(ReportPath,
             $"EnemyMaterialRoots={bows.Length}\n" +
             $"EnemyMaterialAssets={copies.Count}\n" +

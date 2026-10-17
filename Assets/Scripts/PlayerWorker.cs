@@ -38,6 +38,10 @@ public class PlayerWorker : MonoBehaviour
     private CapsuleCollider movementCapsule;
     // CharacterController owns normal locomotion; the root Rigidbody temporarily owns knockback.
     private CharacterController characterController;
+    private NavMeshAgent nav;
+    private GameObject navigationTarget;
+    private float navigationTargetRefreshTimer;
+    private bool holdingCombatDistance;
     private Vector2 movementInput;
     private Vector3 movementVelocity;
     private float verticalVelocity;
@@ -66,7 +70,14 @@ public class PlayerWorker : MonoBehaviour
     private Vector3 knockbackDirection;
     [SerializeField] private MultiAimConstraint ma;
     [SerializeField] private Vector3 headRotOffset;
+    [SerializeField, Min(0.1f)] private float headLookSpeed = 12f;
+    private Vector3 smoothedHeadLookDirection;
+    private bool headLookDirectionInitialized;
     [SerializeField] private float movementSpeed = 5f;
+    [Header("Automatic NavMesh pursuit")]
+    [SerializeField, Min(0.1f)] private float navigationTargetRefreshInterval = 0.25f;
+    [SerializeField, Min(0.1f)] private float navigationStoppingDistance = 2.4f;
+    [SerializeField, Min(0.1f)] private float navigationResumeDistance = 3.4f;
     [SerializeField] private Vector3 camPos;
     [SerializeField] private RectTransform endUI;
     [SerializeField] private Text header;
@@ -102,6 +113,17 @@ public class PlayerWorker : MonoBehaviour
         Cursor.visible = false;
         anim = animatorOverride != null ? animatorOverride : GetComponent<Animator>();
         playerAnimator = anim;
+        if (ma != null)
+        {
+            ma.weight = 0f;
+            ma.enabled = false;
+            MultiParentConstraint headParent = ma.GetComponent<MultiParentConstraint>();
+            if (headParent != null)
+            {
+                headParent.weight = 0f;
+                headParent.enabled = false;
+            }
+        }
         TargetMatching weaponTarget = GetComponentInChildren<TargetMatching>(true);
         psword = weaponTarget != null ? weaponTarget.transform : null;
         if (sword == null) sword = psword;
@@ -114,6 +136,8 @@ public class PlayerWorker : MonoBehaviour
         if (characterController == null)
             characterController = gameObject.AddComponent<CharacterController>();
         ConfigureCharacterController();
+        nav = ResolveRootAgent();
+        ConfigureNavigationAgent();
         if (rigid != null)
         {
             rigid.isKinematic = true;
@@ -228,7 +252,7 @@ public class PlayerWorker : MonoBehaviour
     private void Update()
     {
         movementInput = Vector2.zero;
-        //nav.SetDestination(des.transform.position);
+        UpdateAutomaticNavigation();
         if(swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
             anim.SetFloat("tx", tx);
@@ -257,14 +281,11 @@ public class PlayerWorker : MonoBehaviour
         }*/
         if (health > -1)
         {
-            //player movement
+            // Locomotion is automatic through the root NavMeshAgent. Keyboard axes are
+            // deliberately ignored; mouse input continues to control attacks and guarding.
             if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
             {
-                float x = Input.GetAxis("Horizontal"); // 수평 입력
-                float z = Input.GetAxis("Vertical"); // 수직 입력
-                anim.SetFloat("mx", x);
-                anim.SetFloat("mz", z);
-                movementInput = Vector2.ClampMagnitude(new Vector2(x, z), 1f);
+                UpdateNavigationAnimation();
             }
             if (onTarget && !isEnd && ent != null)
             {
@@ -285,8 +306,8 @@ public class PlayerWorker : MonoBehaviour
             if (guard == 1)
             {
                 guard = 0;
-                anim.CrossFadeInFixedTime("Idle", 0.25f, 0);
-                anim.CrossFadeInFixedTime("Idle", 0.25f, 1);
+                anim.CrossFade("Idle", 0f, 0);
+                anim.CrossFade("Idle", 0f, 1);
                 //sword.localPosition = swordOffset;//new Vector3(-0.38f, 0.514f, -0.027f);
             }
         }
@@ -295,8 +316,8 @@ public class PlayerWorker : MonoBehaviour
             if (guard == 0)
             {
                 guard = 1;
-                anim.CrossFadeInFixedTime("BlockIdle", 0.25f, 0);
-                anim.CrossFadeInFixedTime("BlockIdle", 0.25f, 1);
+                anim.CrossFade("BlockIdle", 0f, 0);
+                anim.CrossFade("BlockIdle", 0f, 1);
                 //sword.localPosition = new Vector3(sword.localPosition.x + 1, sword.localPosition.y - 2, sword.localPosition.z);
                 //sword.position += transform.forward;
                 SoundManager.Instance.SFXPlay("Shield");
@@ -312,8 +333,8 @@ public class PlayerWorker : MonoBehaviour
         {
             attackDirection = new Vector2(tx, ty);
             attackSequence++;
-            anim.CrossFadeInFixedTime("Attack", 0.25f, 0);
-            anim.CrossFadeInFixedTime("Attack", 0.25f, 1);
+            anim.CrossFade("Attack", 0f, 0);
+            anim.CrossFade("Attack", 0f, 1);
             SoundManager.Instance.SFXPlay("Swing1");
             ma.weight = 0;
         }
@@ -342,7 +363,7 @@ public class PlayerWorker : MonoBehaviour
         }
         if (onTarget && ent != null)
         {
-            if (ent.gameObject.tag != "Enemy" || (ent.transform.position - transform.position).magnitude > 10f)
+            if (!ent.activeInHierarchy || !ent.CompareTag("Enemy"))
             {
                 onTarget = false;
             }
@@ -385,10 +406,14 @@ public class PlayerWorker : MonoBehaviour
             return;
         }
 
-        if (characterController == null || !characterController.enabled)
+        UpdateFacingRotation();
+
+        // A valid root agent owns ordinary movement, including slopes and stairs.
+        if (nav != null && nav.enabled && nav.isOnNavMesh)
             return;
 
-        UpdateFacingRotation();
+        if (characterController == null || !characterController.enabled)
+            return;
 
         Vector3 localMove = new(movementInput.x, 0f, movementInput.y);
         Vector3 desiredDirection = Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * localMove;
@@ -421,6 +446,15 @@ public class PlayerWorker : MonoBehaviour
         verticalVelocity = 0f;
         rootPhysicsKnockback = true;
 
+        if (nav != null && nav.enabled)
+        {
+            if (nav.isOnNavMesh)
+            {
+                nav.isStopped = true;
+                nav.ResetPath();
+            }
+            nav.enabled = false;
+        }
         if (characterController != null) characterController.enabled = false;
         if (movementCapsule != null) movementCapsule.enabled = true;
         rigid.isKinematic = false;
@@ -467,20 +501,240 @@ public class PlayerWorker : MonoBehaviour
         rigid.detectCollisions = false;
         rigid.constraints = RigidbodyConstraints.FreezeAll;
         if (movementCapsule != null) movementCapsule.enabled = false;
-        if (characterController != null) characterController.enabled = true;
+        RestoreNavigationAfterKnockback();
         rootPhysicsKnockback = false;
     }
 
     private void ConfigurePhysicalRoot()
     {
         foreach (NavMeshAgent childAgent in GetComponentsInChildren<NavMeshAgent>(true))
-            childAgent.enabled = false;
+            if (childAgent.gameObject != gameObject)
+                childAgent.enabled = false;
 
         if (body != null && body.TryGetComponent(out Rigidbody balanceBody))
         {
             balanceBody.useGravity = false;
             balanceBody.isKinematic = true;
         }
+    }
+
+    private NavMeshAgent ResolveRootAgent()
+    {
+        NavMeshAgent rootAgent = GetComponent<NavMeshAgent>();
+        NavMeshAgent source = rootAgent;
+        foreach (NavMeshAgent candidate in GetComponentsInChildren<NavMeshAgent>(true))
+        {
+            if (candidate.gameObject != gameObject && source == null)
+                source = candidate;
+        }
+
+        if (rootAgent == null)
+        {
+            rootAgent = gameObject.AddComponent<NavMeshAgent>();
+            if (source != null)
+            {
+                rootAgent.agentTypeID = source.agentTypeID;
+                rootAgent.radius = source.radius;
+                rootAgent.height = source.height;
+                rootAgent.baseOffset = source.baseOffset;
+                rootAgent.areaMask = source.areaMask;
+            }
+        }
+
+        foreach (NavMeshAgent candidate in GetComponentsInChildren<NavMeshAgent>(true))
+            if (candidate != rootAgent)
+                candidate.enabled = false;
+        return rootAgent;
+    }
+
+    private void ConfigureNavigationAgent()
+    {
+        if (nav == null) return;
+
+        navigationStoppingDistance = Mathf.Max(2.4f, navigationStoppingDistance);
+        navigationResumeDistance = Mathf.Max(navigationStoppingDistance + 1f,
+            navigationResumeDistance);
+        nav.speed = movementSpeed;
+        nav.acceleration = Mathf.Max(12f, movementSpeed * 4f);
+        nav.angularSpeed = 0f;
+        nav.updatePosition = true;
+        nav.updateRotation = false;
+        nav.autoBraking = true;
+        nav.autoRepath = true;
+        nav.autoTraverseOffMeshLink = true;
+        // The destination itself is already offset from the enemy by the combat distance.
+        // Keep the agent's own stopping distance small so the two distances do not stack.
+        nav.stoppingDistance = 0.1f;
+        nav.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
+
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, nav.areaMask))
+            nav.Warp(hit.position);
+
+        // Do not let two independent movement components write the transform.
+        if (characterController != null)
+            characterController.enabled = nav.isOnNavMesh ? false : true;
+    }
+
+    private void UpdateAutomaticNavigation()
+    {
+        bool movementLockedByAnimation = anim != null
+            && (anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted")
+                || anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"));
+        if (rootPhysicsKnockback || health < 0 || isEnd || movementLockedByAnimation)
+        {
+            StopNavigation();
+            return;
+        }
+
+        navigationTargetRefreshTimer -= Time.deltaTime;
+        if (navigationTargetRefreshTimer <= 0f || !IsValidNavigationTarget(navigationTarget))
+        {
+            navigationTargetRefreshTimer = navigationTargetRefreshInterval;
+            // Keep a valid target instead of switching between similarly close enemies every
+            // refresh; target swapping would repeatedly cancel the combat-distance hold.
+            GameObject refreshedTarget = IsValidNavigationTarget(navigationTarget)
+                ? navigationTarget
+                : FindNearestEnemyForNavigation();
+            if (refreshedTarget != navigationTarget)
+                holdingCombatDistance = false;
+            navigationTarget = refreshedTarget;
+            if (navigationTarget != null)
+            {
+                ent = navigationTarget;
+                entAnim = navigationTarget.GetComponent<Animator>();
+                onTarget = entAnim != null;
+            }
+        }
+
+        if (!IsValidNavigationTarget(navigationTarget))
+        {
+            holdingCombatDistance = false;
+            StopNavigation();
+            return;
+        }
+
+        Vector3 toEnemy = navigationTarget.transform.position - transform.position;
+        toEnemy.y = 0f;
+        if (toEnemy.sqrMagnitude > 0.0001f)
+        {
+            desiredFacingRotation = Quaternion.LookRotation(toEnemy.normalized, Vector3.up);
+            hasFacingTarget = true;
+        }
+
+        float enemyDistance = toEnemy.magnitude;
+        if (holdingCombatDistance)
+        {
+            if (enemyDistance < navigationResumeDistance)
+            {
+                StopNavigation();
+                return;
+            }
+            holdingCombatDistance = false;
+        }
+        else if (enemyDistance <= navigationStoppingDistance)
+        {
+            holdingCombatDistance = true;
+            StopNavigation();
+            return;
+        }
+
+        Vector3 approachDirection = enemyDistance > 0.001f
+            ? toEnemy / enemyDistance
+            : transform.forward;
+        Vector3 approachPoint = navigationTarget.transform.position
+            - approachDirection * navigationStoppingDistance;
+
+        if (nav != null && nav.enabled)
+        {
+            if (!nav.isOnNavMesh && NavMesh.SamplePosition(transform.position, out NavMeshHit recovery, 5f, nav.areaMask))
+                nav.Warp(recovery.position);
+
+            if (nav.isOnNavMesh)
+            {
+                if (characterController != null && characterController.enabled)
+                    characterController.enabled = false;
+                nav.isStopped = false;
+                if (NavMesh.SamplePosition(approachPoint, out NavMeshHit approachHit, 1.5f, nav.areaMask))
+                    nav.SetDestination(approachHit.position);
+                else
+                    nav.SetDestination(approachPoint);
+                return;
+            }
+        }
+
+        // Scene editing can momentarily leave the root off the baked mesh. Keep a safe
+        // grounded fallback instead of accepting keyboard input or letting the actor fall.
+        if (characterController != null && !characterController.enabled)
+            characterController.enabled = true;
+        Vector3 toApproachPoint = approachPoint - transform.position;
+        toApproachPoint.y = 0f;
+        Vector3 fallback = toApproachPoint.magnitude <= 0.1f
+            ? Vector3.zero
+            : toApproachPoint.normalized * movementSpeed;
+        Vector3 localFallback = transform.InverseTransformDirection(fallback);
+        movementInput = new Vector2(localFallback.x, localFallback.z) / Mathf.Max(0.01f, movementSpeed);
+    }
+
+    private GameObject FindNearestEnemyForNavigation()
+    {
+        GameObject closest = null;
+        float closestSqr = float.PositiveInfinity;
+        foreach (GameObject candidate in GameObject.FindGameObjectsWithTag("Enemy"))
+        {
+            if (!IsValidNavigationTarget(candidate)) continue;
+            float sqr = (candidate.transform.position - transform.position).sqrMagnitude;
+            if (sqr >= closestSqr) continue;
+            closest = candidate;
+            closestSqr = sqr;
+        }
+        return closest;
+    }
+
+    private static bool IsValidNavigationTarget(GameObject candidate)
+    {
+        return candidate != null && candidate.activeInHierarchy && candidate.CompareTag("Enemy");
+    }
+
+    private void UpdateNavigationAnimation()
+    {
+        Vector3 velocity = nav != null && nav.enabled && nav.isOnNavMesh
+            ? nav.desiredVelocity
+            : new Vector3(movementInput.x, 0f, movementInput.y) * movementSpeed;
+        Vector3 localVelocity = transform.InverseTransformDirection(velocity);
+        float speed = Mathf.Max(0.01f, movementSpeed);
+        anim.SetFloat("mx", Mathf.Clamp(localVelocity.x / speed, -1f, 1f));
+        anim.SetFloat("mz", Mathf.Clamp(localVelocity.z / speed, -1f, 1f));
+    }
+
+    private void StopNavigation()
+    {
+        if (nav != null && nav.enabled && nav.isOnNavMesh)
+        {
+            nav.isStopped = true;
+            nav.ResetPath();
+        }
+        if (anim != null)
+        {
+            anim.SetFloat("mx", 0f);
+            anim.SetFloat("mz", 0f);
+        }
+    }
+
+    private void RestoreNavigationAfterKnockback()
+    {
+        if (nav != null)
+        {
+            nav.enabled = true;
+            if (NavMesh.SamplePosition(transform.position, out NavMeshHit recovery, 3f, nav.areaMask))
+            {
+                nav.Warp(recovery.position);
+                nav.isStopped = false;
+                navigationTargetRefreshTimer = 0f;
+                if (characterController != null) characterController.enabled = false;
+                return;
+            }
+        }
+        if (characterController != null) characterController.enabled = true;
     }
 
     private void UpdateFacingRotation()
@@ -530,9 +784,17 @@ public class PlayerWorker : MonoBehaviour
     }
     private void LateUpdate()
     {
-        if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && (!entAnim || anim.GetCurrentAnimatorStateInfo(0).IsName("Attack")))
+        if (health > -1
+            && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted")
+            && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
         {
-            anim.GetBoneTransform(HumanBodyBones.Head).rotation = Quaternion.Euler(headRotOffset + new Vector3(0, transform.rotation.eulerAngles.y, 0));
+            Transform enemyHead = entAnim != null && entAnim.isHuman
+                ? entAnim.GetBoneTransform(HumanBodyBones.Head)
+                : null;
+            Vector3 target = enemyHead != null
+                ? enemyHead.position
+                : transform.position + transform.forward * 5f + Vector3.up * 1.6f;
+            UpdateHeadLook(target);
         }
         if (miiMotion)
         {
@@ -576,6 +838,27 @@ public class PlayerWorker : MonoBehaviour
 
     }
 
+    private void UpdateHeadLook(Vector3 targetPosition)
+    {
+        Transform head = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
+        if (head == null) return;
+
+        Vector3 direction = targetPosition - head.position;
+        if (direction.sqrMagnitude < 0.0001f) return;
+        direction.Normalize();
+        if (!headLookDirectionInitialized)
+        {
+            smoothedHeadLookDirection = transform.forward;
+            headLookDirectionInitialized = true;
+        }
+
+        float blend = 1f - Mathf.Exp(-headLookSpeed * Time.deltaTime);
+        smoothedHeadLookDirection = Vector3.Slerp(smoothedHeadLookDirection, direction, blend).normalized;
+        Quaternion animatedHeadRotation = head.rotation;
+        Quaternion lookDelta = Quaternion.FromToRotation(transform.forward, smoothedHeadLookDirection);
+        head.rotation = lookDelta * animatedHeadRotation;
+    }
+
     public void ReceiveSwordHit(EnemyWorker attacker, Collider weaponCollider, Collider bodyCollider,
         Vector3 hitPoint, int sourceAttackSequence)
     {
@@ -593,7 +876,7 @@ public class PlayerWorker : MonoBehaviour
                     Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
-                    anim.CrossFadeInFixedTime("Hurted", 0.25f, 0);
+                    anim.CrossFade("Hurted", 0f, 0);
                     Vector3 impactDirection = transform.position - attacker.transform.position;
                     impactDirection.y = 0f;
                     ApplyCombatKnockback(impactDirection.normalized * 1.5f);
@@ -607,7 +890,7 @@ public class PlayerWorker : MonoBehaviour
                         guard = 0;
                         //sword.localPosition = swordOffset;//new Vector3(-0.38f, 0.514f, -0.027f);
                         //sword.position -= transform.forward;
-                        anim.CrossFadeInFixedTime("Idle", 0.25f, 0);
+                        anim.CrossFade("Idle", 0f, 0);
                     }
                     health = -1;
                     anim.enabled = false;
@@ -694,7 +977,7 @@ public class PlayerWorker : MonoBehaviour
                 Animator attackerAnimator = attacker.GetComponent<Animator>();
                 if (attackerAnimator != null
                     && !attackerAnimator.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                    attackerAnimator.CrossFadeInFixedTime("Guarded", 0.25f, 0);
+                    attackerAnimator.CrossFade("Guarded", 0f, 0);
             }
         }
     }

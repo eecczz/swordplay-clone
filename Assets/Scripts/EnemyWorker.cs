@@ -40,6 +40,9 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] private MultiAimConstraint ma;
     [SerializeField] private Vector3 headRotOffset;
     [SerializeField] private bool headOffsetIsRootLocal;
+    [SerializeField, Min(0.1f)] private float headLookSpeed = 12f;
+    private Vector3 smoothedHeadLookDirection;
+    private bool headLookDirectionInitialized;
     [SerializeField] private int guardRate = 20;
     [SerializeField] private int health = 2;
     [SerializeField] private float movementSpeed = 5f;
@@ -53,6 +56,11 @@ public class EnemyWorker : MonoBehaviour
     private bool useDirectPursuit;
     private Vector3 previousNavPosition;
     private float navStuckTimer;
+    private Vector3 lastRequestedSlot;
+    private bool hasRequestedSlot;
+    private static readonly float[] SlotRadialOffsets = { 0f, 0.75f, 1.5f, -0.5f };
+    private static readonly float[] SlotLateralOffsets = { 0f, 0.65f, -0.65f, 1.2f, -1.2f };
+    private NavMeshPath slotPathProbe;
     [SerializeField, Min(0.2f)] private float knockbackMaxTime = 1.5f;
     [SerializeField, Min(0.01f)] private float knockbackStopSpeed = 0.15f;
     [SerializeField, Min(0.5f)] private float knockbackDistance = 5f;
@@ -112,6 +120,7 @@ public class EnemyWorker : MonoBehaviour
 
     private void Awake()
     {
+        slotPathProbe = new NavMeshPath();
         ConfigurableJoint legacyRootJoint = GetComponent<ConfigurableJoint>();
         if (legacyRootJoint != null)
             Destroy(legacyRootJoint);
@@ -190,6 +199,8 @@ public class EnemyWorker : MonoBehaviour
         MultiAimConstraintData aimData = ma.data;
         aimData.constrainedObject = head;
         ma.data = aimData;
+        ma.weight = 0f;
+        ma.enabled = false;
 
         // HeadLayer에는 시선용 MultiAim과 위치 추종용 MultiParent가 같이 있다.
         // 복제된 적에서 두 constraint가 다른 캐릭터의 Head를 참조하면
@@ -200,6 +211,8 @@ public class EnemyWorker : MonoBehaviour
             MultiParentConstraintData parentData = headParent.data;
             parentData.constrainedObject = head;
             headParent.data = parentData;
+            headParent.weight = 0f;
+            headParent.enabled = false;
         }
     }
 
@@ -234,7 +247,9 @@ public class EnemyWorker : MonoBehaviour
         if (characterController == null)
             characterController = gameObject.AddComponent<CharacterController>();
         ConfigureCharacterController();
-        engagementRadius = Mathf.Min(engagementRadius, 2.2f);
+        // Keep the formation outside the player's personal space. The player uses a
+        // separate stop/resume band, so this radius no longer creates a mutual chase loop.
+        engagementRadius = Mathf.Clamp(engagementRadius, 2.7f, 3.0f);
         additionalRingSpacing = Mathf.Min(additionalRingSpacing, 1.5f);
         if (nav != null)
         {
@@ -460,8 +475,8 @@ public class EnemyWorker : MonoBehaviour
                 {
                     attackDirection = new Vector2(tx, ty);
                     attackSequence++;
-                    anim.CrossFadeInFixedTime("Attack", 0.25f, 0);
-                    anim.CrossFadeInFixedTime("Attack", 0.25f, 1);
+                    anim.CrossFade("Attack", 0f, 0);
+                    anim.CrossFade("Attack", 0f, 1);
                     ma.weight = 0f;
                     swing = 1;
 
@@ -506,8 +521,8 @@ public class EnemyWorker : MonoBehaviour
                 rty = Mathf.Clamp(rty, -30f, 150f);
 
                 guard = 1;
-                anim.CrossFadeInFixedTime("BlockIdle", 0.25f, 0);
-                anim.CrossFadeInFixedTime("BlockIdle", 0.25f, 1);
+                anim.CrossFade("BlockIdle", 0f, 0);
+                anim.CrossFade("BlockIdle", 0f, 1);
 
                 // 가드 포즈 즉시 보정(프레임 독립)
                 //sword.localPosition = new Vector3(sword.localPosition.x + 1f, sword.localPosition.y - 2f, sword.localPosition.z);
@@ -520,13 +535,13 @@ public class EnemyWorker : MonoBehaviour
             coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
             guardTimer = -1f;
             guard = 0;
-            anim.CrossFadeInFixedTime("Idle", 0.25f, 0);
-            anim.CrossFadeInFixedTime("Idle", 0.25f, 1);
+            anim.CrossFade("Idle", 0f, 0);
+            anim.CrossFade("Idle", 0f, 1);
             //sword.localPosition = swordOffset;
         }
 
         // -------- 기타 상태 가중치 --------
-        if (health > -1)
+        if (health > -1 && legAnim != null)
         {
             legAnim.UseGluing = !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
         }
@@ -628,13 +643,25 @@ public class EnemyWorker : MonoBehaviour
         }
 
         PlaceAgentOnNavMesh();
+        int assignedSlot = GetAssignedSlot();
+        Vector3 requestedSlot = CalculateSlotPosition(assignedSlot);
         if (!nav.isOnNavMesh)
         {
-            MoveTowardWithoutNavMesh(CalculateSlotPosition(GetAssignedSlot()), deltaTime);
+            MoveTowardWithoutNavMesh(requestedSlot, deltaTime);
             return;
         }
 
-        if (inAttack)
+        // Reaching a slot is not a permanent stop. The formation follows the player's
+        // position, so any meaningful slot displacement immediately invalidates the stop.
+        if (!hasRequestedSlot || (requestedSlot - lastRequestedSlot).sqrMagnitude > 0.04f)
+        {
+            lastRequestedSlot = requestedSlot;
+            hasRequestedSlot = true;
+            destinationRefreshTimer = 0f;
+        }
+
+        float slotDistance = Vector3.Distance(transform.position, requestedSlot);
+        if (inAttack && slotDistance <= nav.stoppingDistance + 0.35f)
         {
             nav.isStopped = true;
             anim.SetFloat("mx", 0f);
@@ -648,16 +675,9 @@ public class EnemyWorker : MonoBehaviour
         if (destinationRefreshTimer <= 0f)
         {
             destinationRefreshTimer = destinationRefreshInterval;
-            int slot = GetAssignedSlot();
-            Vector3 requestedSlot = CalculateSlotPosition(slot);
-
             useDirectPursuit = false;
-            float slotRadius = Mathf.Max(3f, slotSampleRadius);
-            float playerRadius = Mathf.Max(6f, slotSampleRadius * 3f);
-            bool pathAssigned = TrySetReachableDestination(requestedSlot, slotRadius, false)
-                || TrySetReachableDestination(PlayerWorker.player.position, playerRadius, false)
-                || TrySetReachableDestination(requestedSlot, slotRadius, true)
-                || TrySetReachableDestination(PlayerWorker.player.position, playerRadius, true);
+            bool pathAssigned = TrySetReachableSlotDestination(assignedSlot, false)
+                || TrySetReachableSlotDestination(assignedSlot, true);
             if (!pathAssigned)
             {
                 // Never drive directly through level geometry when a path is unavailable.
@@ -686,7 +706,8 @@ public class EnemyWorker : MonoBehaviour
         anim.SetFloat("mz", Mathf.Clamp(localVelocity.z / speed, -1f, 1f));
 
         if (!nav.pathPending && nav.hasPath
-                && nav.remainingDistance <= nav.stoppingDistance + 0.15f)
+                && nav.remainingDistance <= nav.stoppingDistance + 0.15f
+                && slotDistance <= nav.stoppingDistance + 0.35f)
         {
             nav.isStopped = true;
             anim.SetFloat("mx", 0f);
@@ -758,19 +779,66 @@ public class EnemyWorker : MonoBehaviour
             nav.nextPosition = transform.position;
     }
 
-    private bool TrySetReachableDestination(Vector3 requestedPosition, float sampleRadius, bool allowPartial)
+    private bool TrySetReachableSlotDestination(int slot, bool allowPartial)
     {
-        if (!NavMesh.SamplePosition(requestedPosition, out NavMeshHit hit, sampleRadius, nav.areaMask))
-            return false;
+        Vector3 playerPosition = PlayerWorker.player.position;
+        Vector3 requestedPosition = CalculateSlotPosition(slot);
+        Vector3 radial = requestedPosition - playerPosition;
+        radial.y = 0f;
+        if (radial.sqrMagnitude < 0.0001f)
+            radial = Vector3.forward;
+        radial.Normalize();
+        Vector3 tangent = Vector3.Cross(Vector3.up, radial);
 
-        NavMeshPath path = new();
-        if (!NavMesh.CalculatePath(nav.nextPosition, hit.position, nav.areaMask, path)
-                || path.status == NavMeshPathStatus.PathInvalid
-                || (!allowPartial && path.status != NavMeshPathStatus.PathComplete)
-                || path.corners == null || path.corners.Length < 2)
-            return false;
+        float requestedRadius = Vector3.Distance(
+            new Vector3(requestedPosition.x, 0f, requestedPosition.z),
+            new Vector3(playerPosition.x, 0f, playerPosition.z));
+        float minimumRadius = Mathf.Max(2.2f, engagementRadius * 0.8f);
+        float sampleRadius = Mathf.Clamp(slotSampleRadius, 0.5f, 1.25f);
+        Vector3 bestDestination = default;
+        bool hasBestDestination = false;
+        float bestScore = float.PositiveInfinity;
+        foreach (float radialOffset in SlotRadialOffsets)
+        foreach (float lateralOffset in SlotLateralOffsets)
+        {
+            float radius = Mathf.Max(minimumRadius, requestedRadius + radialOffset);
+            Vector3 candidate = playerPosition + radial * radius + tangent * lateralOffset;
+            if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, sampleRadius, nav.areaMask))
+                continue;
 
-        return nav.SetPath(path);
+            Vector3 fromPlayer = hit.position - playerPosition;
+            fromPlayer.y = 0f;
+            if (fromPlayer.magnitude < minimumRadius)
+                continue;
+
+            if (!NavMesh.CalculatePath(nav.nextPosition, hit.position, nav.areaMask, slotPathProbe)
+                    || slotPathProbe.status == NavMeshPathStatus.PathInvalid
+                    || (!allowPartial && slotPathProbe.status != NavMeshPathStatus.PathComplete))
+                continue;
+
+            Vector3[] corners = slotPathProbe.corners;
+            if (corners == null || corners.Length < 2)
+                continue;
+            Vector3 pathEnd = corners[corners.Length - 1];
+            Vector3 pathEndFromPlayer = pathEnd - playerPosition;
+            pathEndFromPlayer.y = 0f;
+            if (pathEndFromPlayer.magnitude < minimumRadius)
+                continue;
+
+            float score = (pathEnd - requestedPosition).sqrMagnitude;
+            if (slotPathProbe.status == NavMeshPathStatus.PathPartial)
+                score += 100f;
+            if (score >= bestScore)
+                continue;
+
+            bestScore = score;
+            bestDestination = hit.position;
+            hasBestDestination = true;
+        }
+
+        return hasBestDestination
+            && NavMesh.CalculatePath(nav.nextPosition, bestDestination, nav.areaMask, slotPathProbe)
+            && nav.SetPath(slotPathProbe);
     }
 
     public void ApplyCombatKnockback(Vector3 direction)
@@ -858,12 +926,15 @@ public class EnemyWorker : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && (!playerAnim || anim.GetCurrentAnimatorStateInfo(0).IsName("Attack")))
+        if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
         {
-            Transform head = anim.GetBoneTransform(HumanBodyBones.Head);
-            head.rotation = headOffsetIsRootLocal
-                ? Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * Quaternion.Euler(headRotOffset)
-                : Quaternion.Euler(headRotOffset + new Vector3(0, transform.rotation.eulerAngles.y, 0));
+            Transform playerHead = PlayerWorker.playerAnimator != null && PlayerWorker.playerAnimator.isHuman
+                ? PlayerWorker.playerAnimator.GetBoneTransform(HumanBodyBones.Head)
+                : null;
+            Vector3 target = playerHead != null
+                ? playerHead.position
+                : PlayerWorker.player != null ? PlayerWorker.player.position + Vector3.up * 1.6f : transform.position + transform.forward;
+            UpdateHeadLook(target);
         }
         if (miiMotion)
         {
@@ -906,6 +977,27 @@ public class EnemyWorker : MonoBehaviour
         }
     }
 
+    private void UpdateHeadLook(Vector3 targetPosition)
+    {
+        Transform head = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
+        if (head == null) return;
+
+        Vector3 direction = targetPosition - head.position;
+        if (direction.sqrMagnitude < 0.0001f) return;
+        direction.Normalize();
+        if (!headLookDirectionInitialized)
+        {
+            smoothedHeadLookDirection = transform.forward;
+            headLookDirectionInitialized = true;
+        }
+
+        float blend = 1f - Mathf.Exp(-headLookSpeed * Time.deltaTime);
+        smoothedHeadLookDirection = Vector3.Slerp(smoothedHeadLookDirection, direction, blend).normalized;
+        Quaternion animatedHeadRotation = head.rotation;
+        Quaternion lookDelta = Quaternion.FromToRotation(transform.forward, smoothedHeadLookDirection);
+        head.rotation = lookDelta * animatedHeadRotation;
+    }
+
     public void ReceiveSwordHit(PlayerWorker attacker, Collider weaponCollider, Collider bodyCollider,
         Vector3 hitPoint, int sourceAttackSequence)
     {
@@ -923,7 +1015,7 @@ public class EnemyWorker : MonoBehaviour
                     Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
-                    anim.CrossFadeInFixedTime("Hurted", 0.25f, 0);
+                    anim.CrossFade("Hurted", 0f, 0);
                     Vector3 impactDirection = transform.position - PlayerWorker.player.position;
                     impactDirection.y = 0f;
                     ApplyCombatKnockback(impactDirection);
@@ -935,8 +1027,8 @@ public class EnemyWorker : MonoBehaviour
                     if (guard == 1)
                     {
                         guard = 0;
-                        anim.CrossFadeInFixedTime("Idle", 0.25f, 0);
-                        anim.CrossFadeInFixedTime("Idle", 0.25f, 1);
+                        anim.CrossFade("Idle", 0f, 0);
+                        anim.CrossFade("Idle", 0f, 1);
                         //sword.localPosition = swordOffset;
                     }
                     health = -1;
@@ -1024,7 +1116,7 @@ public class EnemyWorker : MonoBehaviour
                     reboundDirection = -transform.forward;
                 attacker.ApplyCombatKnockback(reboundDirection);
                 if (!playerAnim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                    playerAnim.CrossFadeInFixedTime("Guarded", 0.25f, 0);
+                    playerAnim.CrossFade("Guarded", 0f, 0);
             }
         }
     }
