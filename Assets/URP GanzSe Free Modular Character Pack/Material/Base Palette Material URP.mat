@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Base Palette Material URP
-  m_Shader: {fileID: 4800000, guid: 0fa87d7af2cb4bce9cf0bf44254a7821, type: 3}
+  m_Shader: {fileID: 4800000, guid: c38407e78eab49f4283d8b3acb37958e, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -64,7 +64,7 @@ Material:
     - _StoneColor: {r: 1, g: 1, b: 1, a: 1}
     - _SunColor: {r: 1, g: 0.77, b: 0.54999995, a: 1}
     - _TopColor: {r: 0.23999995, g: 0.29999998, b: 0.52, a: 1}
-    - _WarriorTintColor: {r: 1, g: 1, b: 1, a: 1}
+    - _WarriorTintColor: {r: 1, g: 0.56103945, b: 0.4481132, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &1535991283386333549
