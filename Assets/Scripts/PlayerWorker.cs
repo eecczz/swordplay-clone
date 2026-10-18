@@ -20,6 +20,16 @@ public class PlayerWorker : MonoBehaviour
     public static Transform psword;
     [SerializeField] private Transform sword;
     [SerializeField] private float sensitivity = 5;
+    public enum InputMode { PC, Mobile }
+    [Header("Input")]
+    [SerializeField] private InputMode inputMode = InputMode.PC;
+    [SerializeField, Min(0.1f)] private float mobilePoseLerpSpeed = 12f;
+    [SerializeField, Min(50f)] private float mobileSwipeSpeed = 900f;
+    [SerializeField, Min(0.1f)] private float mobileSwingPoseTolerance = 4f;
+    private Vector2 mobileTargetPose;
+    private bool mobilePoseInitialized;
+    private bool queuedMobileSwing;
+    private float telegraphedGuardTimer;
     [SerializeField] private Vector3 swordOffset;
     private Vector3 camDis;
     [SerializeField] private float canSwing = 10f;
@@ -96,6 +106,7 @@ public class PlayerWorker : MonoBehaviour
     public int AttackSequence => attackSequence;
     public bool IsAttackHitActive => health > -1 && attackSequence > 0
         && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
+    public void SetSensitivity(float value) => sensitivity = Mathf.Max(0.1f, value);
 
     /*3d character application
      head's up, forward axis compare and edit animation rigging's head ik
@@ -169,17 +180,19 @@ public class PlayerWorker : MonoBehaviour
         GameObject[] gos;
         gos = GameObject.FindGameObjectsWithTag("Enemy");
         GameObject closest = null;
-        float distance = Mathf.Infinity;
+        float bestScore = float.NegativeInfinity;
         Vector3 position = transform.position;
         foreach (GameObject go in gos)
         {
             Vector3 diff = go.transform.position - position;
-            float curDistance = diff.sqrMagnitude;
-            if (curDistance < distance && IsEnemyInView(go.gameObject))
+            diff.y = 0f;
+            float distance = Mathf.Max(0.01f, diff.magnitude);
+            float score = Vector3.Dot(transform.forward, diff / distance) * 100f - distance;
+            if (score > bestScore && IsEnemyInView(go.gameObject))
             {
                 closest = go;
                 ent = closest;
-                distance = curDistance;
+                bestScore = score;
             }
         }
         return closest;
@@ -236,8 +249,13 @@ public class PlayerWorker : MonoBehaviour
             anim.SetFloat("tx", tx);
             anim.SetFloat("ty", ty);
         }
-        tx += Input.GetAxis("Mouse X") * sensitivity;
-        ty += Input.GetAxis("Mouse Y") * sensitivity;
+        if (inputMode == InputMode.Mobile)
+            UpdateMobileInput();
+        else
+        {
+            tx += Input.GetAxis("Mouse X") * sensitivity;
+            ty += Input.GetAxis("Mouse Y") * sensitivity;
+        }
         tx = Mathf.Clamp(tx, -180, 180);
         ty = Mathf.Clamp(ty, -30, 150);
         IsGoal();
@@ -272,7 +290,10 @@ public class PlayerWorker : MonoBehaviour
                 }
             }
         }
-        if (!Input.GetMouseButton(1))
+        bool manualGuard = inputMode == InputMode.PC && Input.GetMouseButton(1);
+        if (telegraphedGuardTimer > 0f)
+            telegraphedGuardTimer -= Time.deltaTime;
+        if (!manualGuard && telegraphedGuardTimer <= 0f)
         {
             if (guard == 1)
             {
@@ -300,8 +321,11 @@ public class PlayerWorker : MonoBehaviour
 
         anim.SetFloat("time", 1 - testScore / 180);
         preScore = curScore;
-        if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded") && goalScore > canSwing && guard == 0 && swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack")) //������
+        bool wantsSwing = inputMode == InputMode.Mobile ? queuedMobileSwing : goalScore > canSwing;
+        bool mobilePoseReady = inputMode != InputMode.Mobile || Vector2.Distance(new Vector2(tx, ty), mobileTargetPose) <= mobileSwingPoseTolerance;
+        if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded") && wantsSwing && mobilePoseReady && guard == 0 && swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
+            queuedMobileSwing = false;
             attackDirection = new Vector2(tx, ty);
             attackSequence++;
             anim.CrossFade("Attack", 0f, 0);
@@ -365,6 +389,43 @@ public class PlayerWorker : MonoBehaviour
         sources.SetWeight(0, 1f - w); // 오른손 영향
         sources.SetWeight(1, w);      // 왼손 영향
         weaponBlend.data.sourceObjects = sources;
+    }
+
+    private void UpdateMobileInput()
+    {
+        if (!mobilePoseInitialized)
+        {
+            mobileTargetPose = new Vector2(tx, ty);
+            mobilePoseInitialized = true;
+        }
+        if (Input.touchCount > 0)
+        {
+            Touch touch = Input.GetTouch(0);
+            mobileTargetPose = new Vector2(
+                Mathf.Lerp(-180f, 180f, touch.position.x / Mathf.Max(1f, Screen.width)),
+                Mathf.Lerp(-30f, 150f, touch.position.y / Mathf.Max(1f, Screen.height)));
+            float swipeSpeed = touch.deltaPosition.magnitude / Mathf.Max(0.001f, Time.unscaledDeltaTime);
+            if (touch.phase == TouchPhase.Moved && swipeSpeed >= mobileSwipeSpeed)
+                queuedMobileSwing = true;
+        }
+        float t = 1f - Mathf.Exp(-mobilePoseLerpSpeed * Time.deltaTime);
+        Vector2 pose = Vector2.Lerp(new Vector2(tx, ty), mobileTargetPose, t);
+        tx = pose.x;
+        ty = pose.y;
+    }
+
+    public void BeginTelegraphedBlock(Vector2 incomingDirection, float duration)
+    {
+        if (health < 0 || swing != 0) return;
+        tx = incomingDirection.x;
+        ty = incomingDirection.y;
+        telegraphedGuardTimer = Mathf.Max(telegraphedGuardTimer, duration);
+        if (guard == 0)
+        {
+            guard = 1;
+            anim.CrossFade("BlockIdle", 0.08f, 0);
+            anim.CrossFade("BlockIdle", 0.08f, 1);
+        }
     }
 
     private void FixedUpdate()
@@ -495,9 +556,6 @@ public class PlayerWorker : MonoBehaviour
     {
         if (nav == null) return;
 
-        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, nav.areaMask))
-            nav.Warp(hit.position);
-
         // Do not let two independent movement components write the transform.
         if (characterController != null)
             characterController.enabled = nav.isOnNavMesh ? false : true;
@@ -522,7 +580,7 @@ public class PlayerWorker : MonoBehaviour
             // refresh; target swapping would repeatedly cancel the combat-distance hold.
             GameObject refreshedTarget = IsValidNavigationTarget(navigationTarget)
                 ? navigationTarget
-                : FindNearestEnemyForNavigation();
+                : FindFrontEnemyForNavigation();
             if (refreshedTarget != navigationTarget)
                 holdingCombatDistance = false;
             navigationTarget = refreshedTarget;
@@ -574,9 +632,6 @@ public class PlayerWorker : MonoBehaviour
 
         if (nav != null && nav.enabled)
         {
-            if (!nav.isOnNavMesh && NavMesh.SamplePosition(transform.position, out NavMeshHit recovery, 5f, nav.areaMask))
-                nav.Warp(recovery.position);
-
             if (nav.isOnNavMesh)
             {
                 if (characterController != null && characterController.enabled)
@@ -603,17 +658,20 @@ public class PlayerWorker : MonoBehaviour
         movementInput = new Vector2(localFallback.x, localFallback.z) / Mathf.Max(0.01f, movementSpeed);
     }
 
-    private GameObject FindNearestEnemyForNavigation()
+    private GameObject FindFrontEnemyForNavigation()
     {
         GameObject closest = null;
-        float closestSqr = float.PositiveInfinity;
+        float bestScore = float.NegativeInfinity;
         foreach (GameObject candidate in GameObject.FindGameObjectsWithTag("Enemy"))
         {
             if (!IsValidNavigationTarget(candidate)) continue;
-            float sqr = (candidate.transform.position - transform.position).sqrMagnitude;
-            if (sqr >= closestSqr) continue;
+            Vector3 delta = candidate.transform.position - transform.position;
+            delta.y = 0f;
+            float distance = Mathf.Max(0.01f, delta.magnitude);
+            float score = Vector3.Dot(transform.forward, delta / distance) * 100f - distance;
+            if (score <= bestScore) continue;
             closest = candidate;
-            closestSqr = sqr;
+            bestScore = score;
         }
         return closest;
     }
@@ -653,9 +711,8 @@ public class PlayerWorker : MonoBehaviour
         if (nav != null)
         {
             nav.enabled = true;
-            if (NavMesh.SamplePosition(transform.position, out NavMeshHit recovery, 3f, nav.areaMask))
+            if (nav.isOnNavMesh)
             {
-                nav.Warp(recovery.position);
                 nav.isStopped = false;
                 navigationTargetRefreshTimer = 0f;
                 if (characterController != null) characterController.enabled = false;

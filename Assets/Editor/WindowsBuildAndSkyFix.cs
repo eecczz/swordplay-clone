@@ -75,7 +75,6 @@ public static class WindowsBuildAndSkyFix
     [MenuItem("Tools/Swordplay/Build And Run Windows")]
     public static void BuildAndRunWindows()
     {
-        GroundActivePlayerToSurface();
         BrokenEdgeNavMeshBaker.BakeLaunchScene();
         FixStandaloneSky();
         Scene launchScene = SceneManager.GetActiveScene();

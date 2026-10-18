@@ -1,5 +1,6 @@
 ﻿using FIMSpace.FProceduralAnimation;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Animations.Rigging;
@@ -10,6 +11,7 @@ public class EnemyWorker : MonoBehaviour
 {
     private static readonly List<EnemyWorker> ActiveEnemies = new();
     private static readonly Dictionary<EnemyWorker, int> SlotAssignments = new();
+    private static float nextSlotAssignmentTime;
 
     private Animator anim;
     private NavMeshAgent nav;
@@ -47,6 +49,10 @@ public class EnemyWorker : MonoBehaviour
     private bool headAxisCorrectionInitialized;
     [SerializeField] private int guardRate = 20;
     [SerializeField] private int health = 2;
+    [Header("Telegraphed attack")]
+    [SerializeField, Min(0.1f)] private float preAttackDuration = 0.55f;
+    private bool preAttackQueued;
+    private float preAttackTimer;
     [SerializeField] private float movementSpeed = 5f;
     [Header("NavMesh pursuit")]
     [SerializeField] private float engagementRadius = 4.5f;
@@ -100,12 +106,14 @@ public class EnemyWorker : MonoBehaviour
     public int AttackSequence => attackSequence;
     public bool IsAttackHitActive => health > -1 && attackSequence > 0
         && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
+    public bool IsAlive => health > -1 && gameObject.activeInHierarchy;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetEnemySlots()
     {
         ActiveEnemies.Clear();
         SlotAssignments.Clear();
+        nextSlotAssignmentTime = 0f;
     }
 
     private void OnEnable()
@@ -217,10 +225,7 @@ public class EnemyWorker : MonoBehaviour
             characterController = gameObject.AddComponent<CharacterController>();
         ConfigureCharacterController();
         if (nav != null)
-        {
-            PlaceAgentOnNavMesh();
             previousNavPosition = transform.position;
-        }
         if (rigid != null && nav != null)
         {
             rigid.isKinematic = true;
@@ -313,6 +318,20 @@ public class EnemyWorker : MonoBehaviour
     {
         float dt = Time.deltaTime;
 
+        if (preAttackQueued)
+        {
+            preAttackTimer -= dt;
+            if (preAttackTimer <= 0f)
+            {
+                preAttackQueued = false;
+                attackDirection = new Vector2(tx, ty);
+                attackSequence++;
+                anim.CrossFade("Attack", 0f, 0);
+                anim.CrossFade("Attack", 0f, 1);
+                swing = 1;
+            }
+        }
+
         if (swing==0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
             // Animator 파라미터
@@ -365,6 +384,7 @@ public class EnemyWorker : MonoBehaviour
         if (coolTimer <= 0f
             && guard == 0
             && guardTimer <= 0f
+            && !preAttackQueued
             && health > -1
             && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
@@ -385,11 +405,10 @@ public class EnemyWorker : MonoBehaviour
             {
                 if (PlayerWorker.ent && PlayerWorker.ent.transform == transform)
                 {
-                    attackDirection = new Vector2(tx, ty);
-                    attackSequence++;
-                    anim.CrossFade("Attack", 0f, 0);
-                    anim.CrossFade("Attack", 0f, 1);
-                    swing = 1;
+                    preAttackQueued = true;
+                    preAttackTimer = preAttackDuration;
+                    anim.CrossFade("pre_attack", 0.08f, 0);
+                    PlayerWorker.player?.GetComponent<PlayerWorker>()?.BeginTelegraphedBlock(new Vector2(tx, ty), preAttackDuration + 0.7f);
 
                     // 반대 방향으로 목표 갱신
                     cool1Timer = cool1Frames / refFps;
@@ -475,6 +494,11 @@ public class EnemyWorker : MonoBehaviour
 
     private int GetAssignedSlot()
     {
+        if (Time.time >= nextSlotAssignmentTime || SlotAssignments.Count != ActiveEnemies.Count)
+        {
+            RebuildOptimalSlotAssignments();
+            nextSlotAssignmentTime = Time.time + 0.75f;
+        }
         if (SlotAssignments.TryGetValue(this, out int assigned))
             return assigned;
 
@@ -501,6 +525,53 @@ public class EnemyWorker : MonoBehaviour
         return slot;
     }
 
+    // Minimum-cost bipartite assignment (Hungarian algorithm). Reassigning the whole
+    // active roster together avoids the crossing paths produced by first-come greedy slots.
+    private static void RebuildOptimalSlotAssignments()
+    {
+        ActiveEnemies.RemoveAll(value => value == null || !value.IsAlive);
+        int n = ActiveEnemies.Count;
+        SlotAssignments.Clear();
+        if (n == 0 || PlayerWorker.player == null) return;
+        double[,] cost = new double[n + 1, n + 1];
+        for (int i = 1; i <= n; i++)
+            for (int j = 1; j <= n; j++)
+                cost[i, j] = (ActiveEnemies[i - 1].CalculateSlotPosition(j - 1) - ActiveEnemies[i - 1].transform.position).sqrMagnitude;
+        double[] u = new double[n + 1], v = new double[n + 1];
+        int[] p = new int[n + 1], way = new int[n + 1];
+        for (int i = 1; i <= n; i++)
+        {
+            p[0] = i;
+            int j0 = 0;
+            double[] minv = Enumerable.Repeat(double.PositiveInfinity, n + 1).ToArray();
+            bool[] used = new bool[n + 1];
+            do
+            {
+                used[j0] = true;
+                int i0 = p[j0], j1 = 0;
+                double delta = double.PositiveInfinity;
+                for (int j = 1; j <= n; j++) if (!used[j])
+                {
+                    double cur = cost[i0, j] - u[i0] - v[j];
+                    if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+                    if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+                }
+                for (int j = 0; j <= n; j++)
+                    if (used[j]) { u[p[j]] += delta; v[j] -= delta; }
+                    else minv[j] -= delta;
+                j0 = j1;
+            } while (p[j0] != 0);
+            do
+            {
+                int j1 = way[j0];
+                p[j0] = p[j1];
+                j0 = j1;
+            } while (j0 != 0);
+        }
+        for (int j = 1; j <= n; j++)
+            if (p[j] > 0) SlotAssignments[ActiveEnemies[p[j] - 1]] = j - 1;
+    }
+
     private void ReleaseSlot()
     {
         SlotAssignments.Remove(this);
@@ -521,25 +592,6 @@ public class EnemyWorker : MonoBehaviour
         return PlayerWorker.player.position + radial * radius;
     }
 
-    private void PlaceAgentOnNavMesh()
-    {
-        if (nav == null || nav.isOnNavMesh)
-            return;
-
-        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, nav.areaMask))
-        {
-            nav.Warp(hit.position);
-            if (!nav.updatePosition && Vector3.Distance(transform.position, hit.position) > 0.05f)
-            {
-                bool controllerWasEnabled = characterController != null && characterController.enabled;
-                if (controllerWasEnabled) characterController.enabled = false;
-                transform.position = hit.position;
-                if (controllerWasEnabled) characterController.enabled = true;
-                nav.nextPosition = transform.position;
-            }
-        }
-    }
-
     private void UpdateNavigation(float deltaTime)
     {
         bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
@@ -552,7 +604,6 @@ public class EnemyWorker : MonoBehaviour
             return;
         }
 
-        PlaceAgentOnNavMesh();
         int assignedSlot = GetAssignedSlot();
         Vector3 requestedSlot = CalculateSlotPosition(assignedSlot);
         if (!nav.isOnNavMesh)
@@ -649,8 +700,6 @@ public class EnemyWorker : MonoBehaviour
         if (navStuckTimer < 0.75f) return;
 
         navStuckTimer = 0f;
-        if (NavMesh.SamplePosition(transform.position, out NavMeshHit recovery, 1.5f, nav.areaMask))
-            nav.Warp(recovery.position);
         nav.ResetPath();
         destinationRefreshTimer = 0f;
     }
@@ -823,11 +872,7 @@ public class EnemyWorker : MonoBehaviour
         if (characterController != null) characterController.enabled = true;
         physicsReaction = false;
         nav.enabled = true;
-        if (NavMesh.SamplePosition(transform.position, out NavMeshHit recovery, 2f, nav.areaMask))
-        {
-            nav.Warp(recovery.position);
-            nav.updatePosition = true;
-        }
+        nav.updatePosition = true;
         if (nav.isOnNavMesh)
             nav.isStopped = false;
         destinationRefreshTimer = 0f;
@@ -948,6 +993,15 @@ public class EnemyWorker : MonoBehaviour
                 }
                 else
                 {
+                    health = -1;
+                    Swordplay.Visuals.BrokenEdgeCombatImpactVfx.SpawnHit(transform, hitPoint);
+                    CombatImpactAudio.PlayExplosionAtPoint(hitPoint);
+                    if (ArenaGameDirector.Instance != null)
+                    {
+                        ReleaseSlot();
+                        ArenaGameDirector.Instance.NotifyEnemyDefeated(this);
+                        return;
+                    }
                     if (guard == 1)
                     {
                         guard = 0;
@@ -955,7 +1009,6 @@ public class EnemyWorker : MonoBehaviour
                         anim.CrossFade("Idle", 0f, 1);
                         //sword.localPosition = swordOffset;
                     }
-                    health = -1;
                     anim.enabled = false;
                     ReleaseSlot();
                     if (nav != null)
@@ -1043,6 +1096,38 @@ public class EnemyWorker : MonoBehaviour
                     playerAnim.CrossFade("Guarded", 0f, 0);
             }
         }
+    }
+
+    public void ResetForPool(Vector3 spawnPosition, Quaternion spawnRotation)
+    {
+        transform.SetPositionAndRotation(spawnPosition, spawnRotation);
+        health = 0; // One successful unblocked hit defeats an arena enemy.
+        guard = 0;
+        swing = 0;
+        preAttackQueued = false;
+        coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
+        guardTimer = -1f;
+        attackSequence = 0;
+        gameObject.tag = "Enemy";
+        if (anim != null)
+        {
+            anim.enabled = true;
+            anim.Rebind();
+            anim.Update(0f);
+        }
+        if (rig != null) rig.weight = 1f;
+        if (characterController != null) characterController.enabled = true;
+        if (nav != null)
+        {
+            nav.enabled = true;
+            if (nav.isOnNavMesh)
+            {
+                nav.isStopped = false;
+                nav.ResetPath();
+            }
+        }
+        destinationRefreshTimer = 0f;
+        if (!ActiveEnemies.Contains(this)) ActiveEnemies.Add(this);
     }
 
     private void Dissolve()

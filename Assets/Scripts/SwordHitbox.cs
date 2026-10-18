@@ -117,8 +117,6 @@ public sealed class SwordHitbox : MonoBehaviour
         ? playerOwner.AttackSequence
         : enemyOwner != null ? enemyOwner.AttackSequence : -1;
 
-    private int TargetLayerMask => playerOwner != null ? 1 << 7 : 1 << 6;
-
     private void SweepCapsule(Collider source, CapsuleState previous, CapsuleState current)
     {
         if (!previous.Valid)
@@ -143,8 +141,11 @@ public sealed class SwordHitbox : MonoBehaviour
 
     private void QueryCapsule(Collider source, Vector3 start, Vector3 end, float radius)
     {
+        // Do not make combat correctness depend on every child/body collider inheriting
+        // the root's Player/Enemy layer. Modular characters frequently contain colliders
+        // on Default; TryReportHit already performs the authoritative owner-type filter.
         int count = Physics.OverlapCapsuleNonAlloc(start, end, radius, overlapResults,
-            TargetLayerMask, QueryTriggerInteraction.Collide);
+            ~0, QueryTriggerInteraction.Collide);
         for (int i = 0; i < count; i++)
         {
             Collider target = overlapResults[i];

@@ -25,7 +25,11 @@ public class TargetMatching : RigidbodyMatchingBase
             value.isTrigger = true;
 
         foreach (Rigidbody body in GetComponentsInChildren<Rigidbody>(true))
+        {
+            body.isKinematic = true;
+            body.useGravity = false;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        }
     }
 
     protected override void FixedUpdate()
@@ -33,8 +37,9 @@ public class TargetMatching : RigidbodyMatchingBase
         if (Target == null)
             return;
 
-        SetTargetPlacement(Target);
-
-        base.FixedUpdate();
+        // This object is a sword hit detector, not a simulated weapon. Spring-following
+        // lets it trail a fast attack animation and causes visible hits to miss. Follow
+        // the serialized sword target exactly before SwordHitbox performs its sweep.
+        transform.SetPositionAndRotation(Target.position, Target.rotation);
     }
 }
