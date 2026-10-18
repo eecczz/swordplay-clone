@@ -392,8 +392,7 @@ public class PlayerWorker : MonoBehaviour
         Camera activeCamera = Camera.main;
         Transform spineBone = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Spine) : null;
         Transform hipsBone = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Hips) : null;
-        if (activeCamera != null && spineBone != null && hipsBone != null)
-            activeCamera.transform.position = new Vector3(spineBone.position.x, hipsBone.position.y + camPos.y, spineBone.position.z) - transform.forward * camPos.z;
+        activeCamera.transform.position = new Vector3(spineBone.position.x, hipsBone.position.y + camPos.y, spineBone.position.z) - transform.forward * camPos.z;
         //Camera.main.transform.rotation = Quaternion.Euler(new Vector3(20, transform.rotation.eulerAngles.y, 0));
         /*if (!IsStuffInView())
         {
@@ -492,6 +491,7 @@ public class PlayerWorker : MonoBehaviour
 
     public void ApplyCombatKnockback(Vector3 direction)
     {
+        if (knockbackDistance <= 0f) return;
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f || rigid == null) return;
 
@@ -629,7 +629,9 @@ public class PlayerWorker : MonoBehaviour
             desiredFacingRotation = Quaternion.LookRotation(toEnemy.normalized, Vector3.up);
             hasFacingTarget = true;
         }
-
+        StopNavigation();
+        movementInput = Vector2.zero;
+        return;
         float enemyDistance = toEnemy.magnitude;
         if (holdingCombatDistance)
         {
@@ -785,7 +787,9 @@ public class PlayerWorker : MonoBehaviour
             nav.enabled = true;
             if (nav.isOnNavMesh)
             {
-                nav.isStopped = false;
+                nav.isStopped = true;
+                nav.ResetPath();
+                movementInput = Vector2.zero;
                 navigationTargetRefreshTimer = 0f;
                 if (characterController != null) characterController.enabled = false;
                 return;

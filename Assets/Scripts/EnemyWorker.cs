@@ -11,7 +11,9 @@ public class EnemyWorker : MonoBehaviour
 {
     private static readonly List<EnemyWorker> ActiveEnemies = new();
     private static readonly Dictionary<EnemyWorker, int> SlotAssignments = new();
+    private const int FormationSlotCount = 5;
     private static float nextSlotAssignmentTime;
+    private static bool slotAssignmentsDirty;
 
     private Animator anim;
     private NavMeshAgent nav;
@@ -56,7 +58,6 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] private float movementSpeed = 5f;
     [Header("NavMesh pursuit")]
     [SerializeField] private float engagementRadius = 4.5f;
-    [SerializeField] private float additionalRingSpacing = 2.5f;
     [SerializeField] private float slotSampleRadius = 2.5f;
     [SerializeField] private float destinationRefreshInterval = 0.12f;
     private float destinationRefreshTimer;
@@ -66,8 +67,6 @@ public class EnemyWorker : MonoBehaviour
     private float navStuckTimer;
     private Vector3 lastRequestedSlot;
     private bool hasRequestedSlot;
-    private static readonly float[] SlotRadialOffsets = { 0f, 0.75f, 1.5f, -0.5f };
-    private static readonly float[] SlotLateralOffsets = { 0f, 0.65f, -0.65f, 1.2f, -1.2f };
     private NavMeshPath slotPathProbe;
     [SerializeField, Min(0.2f)] private float knockbackMaxTime = 1.5f;
     [SerializeField, Min(0.01f)] private float knockbackStopSpeed = 0.15f;
@@ -114,18 +113,23 @@ public class EnemyWorker : MonoBehaviour
         ActiveEnemies.Clear();
         SlotAssignments.Clear();
         nextSlotAssignmentTime = 0f;
+        slotAssignmentsDirty = true;
     }
 
     private void OnEnable()
     {
         if (!ActiveEnemies.Contains(this))
             ActiveEnemies.Add(this);
+        slotAssignmentsDirty = true;
+        nextSlotAssignmentTime = 0f;
     }
 
     private void OnDisable()
     {
         ActiveEnemies.Remove(this);
         SlotAssignments.Remove(this);
+        slotAssignmentsDirty = true;
+        nextSlotAssignmentTime = 0f;
     }
 
     private void Awake()
@@ -494,7 +498,8 @@ public class EnemyWorker : MonoBehaviour
 
     private int GetAssignedSlot()
     {
-        if (Time.time >= nextSlotAssignmentTime || SlotAssignments.Count != ActiveEnemies.Count)
+        if (slotAssignmentsDirty || Time.time >= nextSlotAssignmentTime
+                || !SlotAssignments.ContainsKey(this))
         {
             RebuildOptimalSlotAssignments();
             nextSlotAssignmentTime = Time.time + 0.75f;
@@ -502,61 +507,65 @@ public class EnemyWorker : MonoBehaviour
         if (SlotAssignments.TryGetValue(this, out int assigned))
             return assigned;
 
-        HashSet<int> occupied = new(SlotAssignments.Values);
-        int slot = 0;
-        float closestDistance = float.PositiveInfinity;
-        int candidateCount = Mathf.Max(8, ActiveEnemies.Count * 2);
-        for (int candidate = 0; candidate < candidateCount; candidate++)
-        {
-            if (occupied.Contains(candidate))
-                continue;
-
-            float distance = PlayerWorker.player == null
-                ? candidate
-                : (CalculateSlotPosition(candidate) - transform.position).sqrMagnitude;
-            if (distance < closestDistance)
-            {
-                closestDistance = distance;
-                slot = candidate;
-            }
-        }
-
-        SlotAssignments[this] = slot;
-        return slot;
+        return -1;
     }
 
-    // Minimum-cost bipartite assignment (Hungarian algorithm). Reassigning the whole
-    // active roster together avoids the crossing paths produced by first-come greedy slots.
+    // Keep the five positions around the player fixed. Existing occupants retain their
+    // positions; the Hungarian pass only assigns newly enabled enemies to genuinely free
+    // positions, so a defeated enemy's position is immediately reusable without creating
+    // an extra position between neighbours or on another ring.
     private static void RebuildOptimalSlotAssignments()
     {
         ActiveEnemies.RemoveAll(value => value == null || !value.IsAlive);
-        int n = ActiveEnemies.Count;
-        SlotAssignments.Clear();
-        if (n == 0 || PlayerWorker.player == null) return;
-        double[,] cost = new double[n + 1, n + 1];
+        HashSet<EnemyWorker> activeSet = new(ActiveEnemies);
+        HashSet<int> occupiedSlots = new();
+        foreach (EnemyWorker enemy in SlotAssignments.Keys.ToArray())
+        {
+            int slot = SlotAssignments[enemy];
+            if (!activeSet.Contains(enemy)
+                    || slot < 0 || slot >= FormationSlotCount
+                    || !occupiedSlots.Add(slot))
+            {
+                SlotAssignments.Remove(enemy);
+            }
+        }
+
+        List<EnemyWorker> unassigned = ActiveEnemies
+            .Where(enemy => !SlotAssignments.ContainsKey(enemy))
+            .ToList();
+        List<int> freeSlots = Enumerable.Range(0, FormationSlotCount)
+            .Where(slot => !occupiedSlots.Contains(slot))
+            .ToList();
+        int n = Mathf.Min(unassigned.Count, freeSlots.Count);
+        int m = freeSlots.Count;
+        slotAssignmentsDirty = false;
+        if (n == 0 || m == 0 || PlayerWorker.player == null) return;
+
+        double[,] cost = new double[n + 1, m + 1];
         for (int i = 1; i <= n; i++)
-            for (int j = 1; j <= n; j++)
-                cost[i, j] = (ActiveEnemies[i - 1].CalculateSlotPosition(j - 1) - ActiveEnemies[i - 1].transform.position).sqrMagnitude;
-        double[] u = new double[n + 1], v = new double[n + 1];
-        int[] p = new int[n + 1], way = new int[n + 1];
+            for (int j = 1; j <= m; j++)
+                cost[i, j] = (unassigned[i - 1].CalculateSlotPosition(freeSlots[j - 1])
+                    - unassigned[i - 1].transform.position).sqrMagnitude;
+        double[] u = new double[n + 1], v = new double[m + 1];
+        int[] p = new int[m + 1], way = new int[m + 1];
         for (int i = 1; i <= n; i++)
         {
             p[0] = i;
             int j0 = 0;
-            double[] minv = Enumerable.Repeat(double.PositiveInfinity, n + 1).ToArray();
-            bool[] used = new bool[n + 1];
+            double[] minv = Enumerable.Repeat(double.PositiveInfinity, m + 1).ToArray();
+            bool[] used = new bool[m + 1];
             do
             {
                 used[j0] = true;
                 int i0 = p[j0], j1 = 0;
                 double delta = double.PositiveInfinity;
-                for (int j = 1; j <= n; j++) if (!used[j])
+                for (int j = 1; j <= m; j++) if (!used[j])
                 {
                     double cur = cost[i0, j] - u[i0] - v[j];
                     if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
                     if (minv[j] < delta) { delta = minv[j]; j1 = j; }
                 }
-                for (int j = 0; j <= n; j++)
+                for (int j = 0; j <= m; j++)
                     if (used[j]) { u[p[j]] += delta; v[j] -= delta; }
                     else minv[j] -= delta;
                 j0 = j1;
@@ -568,28 +577,28 @@ public class EnemyWorker : MonoBehaviour
                 j0 = j1;
             } while (j0 != 0);
         }
-        for (int j = 1; j <= n; j++)
-            if (p[j] > 0) SlotAssignments[ActiveEnemies[p[j] - 1]] = j - 1;
+        for (int j = 1; j <= m; j++)
+            if (p[j] > 0 && p[j] <= n)
+                SlotAssignments[unassigned[p[j] - 1]] = freeSlots[j - 1];
     }
 
     private void ReleaseSlot()
     {
         SlotAssignments.Remove(this);
         ActiveEnemies.Remove(this);
+        slotAssignmentsDirty = true;
+        nextSlotAssignmentTime = 0f;
     }
 
     private Vector3 CalculateSlotPosition(int slot)
     {
-        const int slotsPerRing = 8;
-        int ring = slot / slotsPerRing;
-        int slotInRing = slot % slotsPerRing;
-        float angle = slotInRing * (360f / slotsPerRing) + ring * (180f / slotsPerRing);
-        float radius = engagementRadius + ring * additionalRingSpacing;
+        int fixedSlot = Mathf.Clamp(slot, 0, FormationSlotCount - 1);
+        float angle = fixedSlot * (360f / FormationSlotCount);
         // The formation translates with the player, but it must not rotate with the
         // player's facing. Otherwise player facing moves every enemy destination,
         // producing a feedback loop where both sides orbit forever.
         Vector3 radial = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
-        return PlayerWorker.player.position + radial * radius;
+        return PlayerWorker.player.position + radial * engagementRadius;
     }
 
     private void UpdateNavigation(float deltaTime)
@@ -605,6 +614,17 @@ public class EnemyWorker : MonoBehaviour
         }
 
         int assignedSlot = GetAssignedSlot();
+        if (assignedSlot < 0)
+        {
+            if (nav.enabled && nav.isOnNavMesh)
+            {
+                nav.isStopped = true;
+                nav.ResetPath();
+            }
+            anim.SetFloat("mx", 0f);
+            anim.SetFloat("mz", 0f);
+            return;
+        }
         Vector3 requestedSlot = CalculateSlotPosition(assignedSlot);
         if (!nav.isOnNavMesh)
         {
@@ -742,62 +762,30 @@ public class EnemyWorker : MonoBehaviour
     {
         Vector3 playerPosition = PlayerWorker.player.position;
         Vector3 requestedPosition = CalculateSlotPosition(slot);
-        Vector3 radial = requestedPosition - playerPosition;
-        radial.y = 0f;
-        if (radial.sqrMagnitude < 0.0001f)
-            radial = Vector3.forward;
-        radial.Normalize();
-        Vector3 tangent = Vector3.Cross(Vector3.up, radial);
-
-        float requestedRadius = Vector3.Distance(
-            new Vector3(requestedPosition.x, 0f, requestedPosition.z),
-            new Vector3(playerPosition.x, 0f, playerPosition.z));
         float minimumRadius = Mathf.Max(2.2f, engagementRadius * 0.8f);
         float sampleRadius = Mathf.Clamp(slotSampleRadius, 0.5f, 1.25f);
-        Vector3 bestDestination = default;
-        bool hasBestDestination = false;
-        float bestScore = float.PositiveInfinity;
-        foreach (float radialOffset in SlotRadialOffsets)
-        foreach (float lateralOffset in SlotLateralOffsets)
-        {
-            float radius = Mathf.Max(minimumRadius, requestedRadius + radialOffset);
-            Vector3 candidate = playerPosition + radial * radius + tangent * lateralOffset;
-            if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, sampleRadius, nav.areaMask))
-                continue;
+        if (!NavMesh.SamplePosition(requestedPosition, out NavMeshHit hit, sampleRadius, nav.areaMask))
+            return false;
 
-            Vector3 fromPlayer = hit.position - playerPosition;
-            fromPlayer.y = 0f;
-            if (fromPlayer.magnitude < minimumRadius)
-                continue;
+        Vector3 fromPlayer = hit.position - playerPosition;
+        fromPlayer.y = 0f;
+        if (fromPlayer.magnitude < minimumRadius)
+            return false;
 
-            if (!NavMesh.CalculatePath(nav.nextPosition, hit.position, nav.areaMask, slotPathProbe)
-                    || slotPathProbe.status == NavMeshPathStatus.PathInvalid
-                    || (!allowPartial && slotPathProbe.status != NavMeshPathStatus.PathComplete))
-                continue;
+        if (!NavMesh.CalculatePath(nav.nextPosition, hit.position, nav.areaMask, slotPathProbe)
+                || slotPathProbe.status == NavMeshPathStatus.PathInvalid
+                || (!allowPartial && slotPathProbe.status != NavMeshPathStatus.PathComplete))
+            return false;
 
-            Vector3[] corners = slotPathProbe.corners;
-            if (corners == null || corners.Length < 2)
-                continue;
-            Vector3 pathEnd = corners[corners.Length - 1];
-            Vector3 pathEndFromPlayer = pathEnd - playerPosition;
-            pathEndFromPlayer.y = 0f;
-            if (pathEndFromPlayer.magnitude < minimumRadius)
-                continue;
+        Vector3[] corners = slotPathProbe.corners;
+        if (corners == null || corners.Length < 2)
+            return false;
+        Vector3 pathEndFromPlayer = corners[corners.Length - 1] - playerPosition;
+        pathEndFromPlayer.y = 0f;
+        if (pathEndFromPlayer.magnitude < minimumRadius)
+            return false;
 
-            float score = (pathEnd - requestedPosition).sqrMagnitude;
-            if (slotPathProbe.status == NavMeshPathStatus.PathPartial)
-                score += 100f;
-            if (score >= bestScore)
-                continue;
-
-            bestScore = score;
-            bestDestination = hit.position;
-            hasBestDestination = true;
-        }
-
-        return hasBestDestination
-            && NavMesh.CalculatePath(nav.nextPosition, bestDestination, nav.areaMask, slotPathProbe)
-            && nav.SetPath(slotPathProbe);
+        return nav.SetPath(slotPathProbe);
     }
 
     public void ApplyCombatKnockback(Vector3 direction)
@@ -1098,9 +1086,8 @@ public class EnemyWorker : MonoBehaviour
         }
     }
 
-    public void ResetForPool(Vector3 spawnPosition, Quaternion spawnRotation)
+    public void ResetForPool()
     {
-        transform.SetPositionAndRotation(spawnPosition, spawnRotation);
         health = 0; // One successful unblocked hit defeats an arena enemy.
         guard = 0;
         swing = 0;

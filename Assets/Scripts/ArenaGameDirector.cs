@@ -11,9 +11,8 @@ public sealed class ArenaGameDirector : MonoBehaviour
 
     [Header("Arena pool")]
     [SerializeField] private PlayerWorker player;
-    [SerializeField] private Transform entranceSpawn;
     [SerializeField] private List<EnemyWorker> enemyPool = new();
-    [SerializeField, Range(1, 10)] private int initialActiveEnemies = 10;
+    [SerializeField, Range(1, 10)] private int initialActiveEnemies = 5;
     [SerializeField, Min(0.05f)] private float entranceInterval = 0.32f;
     [SerializeField, Min(0.2f)] private float recycleDelay = 1.25f;
 
@@ -34,6 +33,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
     [SerializeField, Min(1)] private int characterPrice = 100;
 
     private readonly Queue<EnemyWorker> available = new();
+    private readonly Dictionary<EnemyWorker, Pose> authoredSpawnPoses = new();
     private int gold;
     private int diamonds;
     private bool gameRunning;
@@ -45,6 +45,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
         diamonds = PlayerPrefs.GetInt("ArenaDiamonds", 0);
         foreach (EnemyWorker enemy in enemyPool.Where(value => value != null).Distinct())
         {
+            authoredSpawnPoses[enemy] = new Pose(enemy.transform.position, enemy.transform.rotation);
             enemy.gameObject.SetActive(false);
             available.Enqueue(enemy);
         }
@@ -100,11 +101,49 @@ public sealed class ArenaGameDirector : MonoBehaviour
 
     private void SpawnNext()
     {
-        if (available.Count == 0 || entranceSpawn == null) return;
-        EnemyWorker enemy = available.Dequeue();
+        if (available.Count == 0) return;
+        EnemyWorker enemy = DequeueUniqueAppearance();
+        if (enemy == null) return;
+        if (authoredSpawnPoses.TryGetValue(enemy, out Pose authoredPose))
+            enemy.transform.SetPositionAndRotation(authoredPose.position, authoredPose.rotation);
         enemy.gameObject.SetActive(true);
-        Vector3 jitter = entranceSpawn.right * ((enemyPool.IndexOf(enemy) % 3) - 1) * 0.75f;
-        enemy.ResetForPool(entranceSpawn.position + jitter, entranceSpawn.rotation);
+        enemy.ResetForPool();
+    }
+
+    private EnemyWorker DequeueUniqueAppearance()
+    {
+        HashSet<string> activeAppearances = enemyPool
+            .Where(value => value != null && value.gameObject.activeInHierarchy)
+            .Select(GetAppearanceSignature)
+            .ToHashSet();
+
+        int attempts = available.Count;
+        for (int i = 0; i < attempts; i++)
+        {
+            EnemyWorker candidate = available.Dequeue();
+            if (candidate == null) continue;
+            if (!activeAppearances.Contains(GetAppearanceSignature(candidate)))
+                return candidate;
+            available.Enqueue(candidate);
+        }
+
+        Debug.LogError("No pooled enemy has an appearance distinct from the four living enemies.", this);
+        return null;
+    }
+
+    private static string GetAppearanceSignature(EnemyWorker enemy)
+    {
+        if (enemy == null) return string.Empty;
+        return string.Join("|", enemy.GetComponentsInChildren<SkinnedMeshRenderer>(true)
+            .Where(renderer => renderer != null
+                && renderer.sharedMesh != null
+                && renderer.gameObject.activeSelf
+                && renderer.name.Contains(" Armor Type "))
+            .Select(renderer => $"{renderer.name}:{renderer.sharedMesh.name}:"
+                + string.Join(",", renderer.sharedMaterials
+                    .Where(material => material != null)
+                    .Select(material => material.name)))
+            .OrderBy(value => value));
     }
 
     public void NotifyEnemyDefeated(EnemyWorker enemy)
@@ -121,10 +160,16 @@ public sealed class ArenaGameDirector : MonoBehaviour
     private IEnumerator Recycle(EnemyWorker enemy)
     {
         enemy.gameObject.SetActive(false);
+        if (CountActiveEnemies() < initialActiveEnemies)
+            SpawnNext();
         yield return new WaitForSeconds(recycleDelay);
         available.Enqueue(enemy);
-        SpawnNext();
+        if (CountActiveEnemies() < initialActiveEnemies)
+            SpawnNext();
     }
+
+    private int CountActiveEnemies()
+        => enemyPool.Count(value => value != null && value.gameObject.activeInHierarchy);
 
     public void ShowMainMenu()
     {
@@ -179,8 +224,8 @@ public sealed class ArenaGameDirector : MonoBehaviour
             new(.35f, 1f, .52f), new(.72f, .4f, 1f)
         };
         Color color = palette[(owned - 1) % palette.Length];
-        KnightRocketLegVfx rocket = player != null ? player.GetComponent<KnightRocketLegVfx>() : null;
-        if (rocket != null) rocket.SetEffectColor(color);
+        //KnightRocketLegVfx rocket = player != null ? player.GetComponent<KnightRocketLegVfx>() : null;
+        //if (rocket != null) rocket.SetEffectColor(color);
         if (player != null)
             foreach (BrokenEdgeBladeVfx blade in player.GetComponentsInChildren<BrokenEdgeBladeVfx>(true))
                 blade.SetEffectColors(color * 2.2f, Color.Lerp(color, Color.white, .7f));

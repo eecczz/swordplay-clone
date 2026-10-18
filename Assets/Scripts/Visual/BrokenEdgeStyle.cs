@@ -41,7 +41,6 @@ namespace Swordplay.Visuals
         [SerializeField] private Shader skyShader;
         [SerializeField] private Material skyMaterial;
         [SerializeField, Min(4f)] private float arenaRadius = 14f;
-        [SerializeField] private bool centerFightersOnEnable = true;
 
         [Header("Original texture simplification")]
         [SerializeField] private bool applyTexturedToonShader = true;
@@ -133,7 +132,6 @@ namespace Swordplay.Visuals
             // in the scene. Do not rescan every renderer or allocate replacement
             // materials when play mode starts.
             RestoreTexturedMaterials();
-            if (centerFightersOnEnable) CenterFighters();
         }
 
         private void UpgradeSerializedSettings()
@@ -540,43 +538,6 @@ namespace Swordplay.Visuals
             mesh.SetTriangles(triangles, 0, true);
             mesh.RecalculateBounds();
             return mesh;
-        }
-
-        private static void CenterFighters()
-        {
-            var fighters = new List<Transform>();
-            fighters.AddRange(FindObjectsByType<PlayerWorker>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
-                .Where(worker => worker.gameObject.activeInHierarchy).Select(worker => worker.transform));
-            fighters.AddRange(FindObjectsByType<EnemyWorker>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
-                .Where(worker => worker.gameObject.activeInHierarchy).Select(worker => worker.transform));
-            fighters = fighters.Distinct().ToList();
-            if (fighters.Count == 0) return;
-
-            Vector3 center = fighters.Aggregate(Vector3.zero, (sum, fighter) => sum + fighter.position) / fighters.Count;
-            Vector3 horizontalShift = new(-center.x, 0f, -center.z);
-            foreach (Transform fighter in fighters)
-            {
-                fighter.position += horizontalShift;
-                fighter.position += Vector3.up * (0.035f - FindFootY(fighter.gameObject));
-            }
-        }
-
-        private static float FindFootY(GameObject fighter)
-        {
-            Animator animator = fighter.GetComponentInChildren<Animator>(true);
-            if (animator != null && animator.avatar != null && animator.avatar.isValid && animator.avatar.isHuman)
-            {
-                Transform left = animator.GetBoneTransform(HumanBodyBones.LeftFoot);
-                Transform right = animator.GetBoneTransform(HumanBodyBones.RightFoot);
-                if (left != null || right != null)
-                    return Mathf.Min(left != null ? left.position.y : float.PositiveInfinity,
-                        right != null ? right.position.y : float.PositiveInfinity);
-            }
-
-            Collider[] colliders = fighter.GetComponentsInChildren<Collider>(true);
-            if (colliders.Length > 0) return colliders.Min(collider => collider.bounds.min.y);
-            Renderer[] renderers = fighter.GetComponentsInChildren<Renderer>(true);
-            return renderers.Length > 0 ? renderers.Min(renderer => renderer.bounds.min.y) : fighter.transform.position.y;
         }
 
         private static void DestroyOwned(UnityEngine.Object target)
