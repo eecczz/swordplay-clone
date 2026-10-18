@@ -20,6 +20,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
     [Header("Presentation")]
     [SerializeField] private Camera menuCamera;
     [SerializeField] private Camera gameplayCamera;
+    [SerializeField] private List<Camera> gameplayCameras = new();
     [SerializeField] private GameObject mainPanel;
     [SerializeField] private GameObject settingsPanel;
     [SerializeField] private GameObject shopPanel;
@@ -62,9 +63,19 @@ public sealed class ArenaGameDirector : MonoBehaviour
         mainPanel?.SetActive(false);
         settingsPanel?.SetActive(false);
         shopPanel?.SetActive(false);
-        if (menuCamera != null) menuCamera.gameObject.SetActive(false);
-        if (gameplayCamera != null) gameplayCamera.gameObject.SetActive(true);
-        if (player != null) player.enabled = true;
+        if (menuCamera != null)
+        {
+            menuCamera.tag = "Untagged";
+            menuCamera.gameObject.SetActive(false);
+        }
+        SetGameplayCameras(true);
+        if (player != null)
+        {
+            player.enabled = true;
+            player.SetArenaGameplayEnabled(true);
+        }
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
         Time.timeScale = 1f;
         StartCoroutine(BeginArena());
     }
@@ -121,9 +132,20 @@ public sealed class ArenaGameDirector : MonoBehaviour
         mainPanel?.SetActive(true);
         settingsPanel?.SetActive(false);
         shopPanel?.SetActive(false);
-        if (menuCamera != null) menuCamera.gameObject.SetActive(true);
-        if (gameplayCamera != null) gameplayCamera.gameObject.SetActive(false);
-        if (player != null) player.enabled = false;
+        SetGameplayCameras(false);
+        if (menuCamera != null)
+        {
+            menuCamera.gameObject.SetActive(true);
+            menuCamera.enabled = true;
+            menuCamera.tag = "MainCamera";
+        }
+        if (player != null)
+        {
+            player.enabled = true;
+            player.SetArenaGameplayEnabled(false);
+        }
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
         Time.timeScale = 0f;
     }
 
@@ -189,5 +211,27 @@ public sealed class ArenaGameDirector : MonoBehaviour
     private void SetShopStatus(string value)
     {
         if (shopStatusText != null) shopStatusText.text = value;
+    }
+
+    private void SetGameplayCameras(bool active)
+    {
+        IEnumerable<Camera> cameras = gameplayCameras
+            .Where(value => value != null)
+            .Append(gameplayCamera)
+            .Where(value => value != null)
+            .Distinct();
+        Camera primary = gameplayCamera != null ? gameplayCamera : cameras.FirstOrDefault();
+        foreach (Camera camera in cameras)
+        {
+            bool ownsPlayerRoot = player != null && camera.gameObject == player.gameObject;
+            if (!active && !ownsPlayerRoot)
+                camera.gameObject.SetActive(false);
+            else if (active)
+                camera.gameObject.SetActive(true);
+            camera.enabled = active;
+            camera.tag = active && camera == primary ? "MainCamera" : "Untagged";
+            AudioListener listener = camera.GetComponent<AudioListener>();
+            if (listener != null) listener.enabled = active && camera == primary;
+        }
     }
 }

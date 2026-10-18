@@ -26864,7 +26864,7 @@ Camera:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 52125956}
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
   m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
@@ -98167,7 +98167,7 @@ MonoBehaviour:
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 46
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1
@@ -124583,7 +124583,7 @@ Camera:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 249379986}
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
   m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
@@ -127565,7 +127565,7 @@ MonoBehaviour:
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 58
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1
@@ -330403,7 +330403,7 @@ MonoBehaviour:
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 46
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1
@@ -645947,7 +645947,7 @@ Camera:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1358057242}
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 4
   m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
@@ -646043,7 +646043,7 @@ AudioListener:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1358057242}
-  m_Enabled: 0
+  m_Enabled: 1
 --- !u!4 &1358057246
 Transform:
   m_ObjectHideFlags: 0
@@ -700710,7 +700710,11 @@ MonoBehaviour:
   entranceInterval: 0.32
   recycleDelay: 1.25
   menuCamera: {fileID: 1828083372}
-  gameplayCamera: {fileID: 1335234833}
+  gameplayCamera: {fileID: 249379989}
+  gameplayCameras:
+  - {fileID: 1358057243}
+  - {fileID: 52125959}
+  - {fileID: 249379989}
   mainPanel: {fileID: 2123963824}
   settingsPanel: {fileID: 2035882220}
   shopPanel: {fileID: 1125146777}
@@ -864796,7 +864800,7 @@ GameObject:
   - component: {fileID: 1828083373}
   m_Layer: 0
   m_Name: Arena Vista Menu Camera
-  m_TagString: Untagged
+  m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -993777,7 +993781,7 @@ MonoBehaviour:
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 82
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1

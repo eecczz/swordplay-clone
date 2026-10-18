@@ -29,6 +29,7 @@ public class PlayerWorker : MonoBehaviour
     private Vector2 mobileTargetPose;
     private bool mobilePoseInitialized;
     private bool queuedMobileSwing;
+    private bool arenaGameplayEnabled = true;
     private float telegraphedGuardTimer;
     [SerializeField] private Vector3 swordOffset;
     private Vector3 camDis;
@@ -108,6 +109,21 @@ public class PlayerWorker : MonoBehaviour
     public bool IsAttackHitActive => health > -1 && attackSequence > 0
         && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
     public void SetSensitivity(float value) => sensitivity = Mathf.Max(0.1f, value);
+    public void SetArenaGameplayEnabled(bool value)
+    {
+        arenaGameplayEnabled = value;
+        if (!value)
+        {
+            movementInput = Vector2.zero;
+            hasFacingTarget = false;
+            StopNavigation();
+            if (anim != null)
+            {
+                anim.SetFloat("mx", 0f);
+                anim.SetFloat("mz", 0f);
+            }
+        }
+    }
 
     /*3d character application
      head's up, forward axis compare and edit animation rigging's head ik
@@ -243,6 +259,12 @@ public class PlayerWorker : MonoBehaviour
 
     private void Update()
     {
+        // The launch menu pauses gameplay without disabling this component. Disabling and
+        // re-enabling the whole worker changes Animation Rigging evaluation order and can
+        // leave the left-hand IK in a visibly different pose on the first gameplay frame.
+        if (!arenaGameplayEnabled)
+            return;
+
         movementInput = Vector2.zero;
         UpdateAutomaticNavigation();
         if(swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))

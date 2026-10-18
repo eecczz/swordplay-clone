@@ -61,29 +61,40 @@ public static class ArenaContentInstaller
         }
 
         Camera[] sceneCameras = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        Camera gameplay = sceneCameras
-            .Where(value => value.gameObject.activeInHierarchy && value.transform.IsChildOf(player.transform))
-            .FirstOrDefault()
+        Camera[] playerCameras = sceneCameras
+            .Where(value => value.transform.IsChildOf(player.transform) || value.gameObject == player.gameObject)
+            .ToArray();
+        Camera gameplay = playerCameras
+            .FirstOrDefault(value => value.name.IndexOf("PlayerCamera", StringComparison.OrdinalIgnoreCase) >= 0)
+            ?? playerCameras.FirstOrDefault(value => value.gameObject.activeInHierarchy)
+            ?? playerCameras.FirstOrDefault()
             ?? sceneCameras.First(value => value.gameObject.activeInHierarchy);
         foreach (Camera other in sceneCameras)
         {
-            if (other == gameplay) continue;
+            if (playerCameras.Contains(other)) continue;
             other.enabled = false;
             if (other.CompareTag("MainCamera")) other.tag = "Untagged";
             AudioListener listener = other.GetComponent<AudioListener>();
             if (listener != null) listener.enabled = false;
             EditorUtility.SetDirty(other);
         }
-        gameplay.enabled = true;
-        gameplay.tag = "MainCamera";
+        foreach (Camera playerCamera in playerCameras)
+        {
+            playerCamera.enabled = true;
+            playerCamera.tag = "Untagged";
+            AudioListener listener = playerCamera.GetComponent<AudioListener>();
+            if (listener != null) listener.enabled = playerCamera == gameplay;
+        }
         AudioListener gameplayListener = gameplay.GetComponent<AudioListener>();
         if (gameplayListener != null) gameplayListener.enabled = true;
         Camera menu = UnityEngine.Object.Instantiate(gameplay, root.transform);
         menu.name = "Arena Vista Menu Camera";
-        menu.tag = "Untagged";
+        menu.tag = "MainCamera";
         menu.transform.position = player.transform.position - player.transform.forward * 18f + Vector3.up * 10f;
         menu.transform.LookAt(player.transform.position + Vector3.up * 2.5f);
-        gameplay.gameObject.SetActive(false);
+        foreach (Camera playerCamera in playerCameras)
+            if (playerCamera.gameObject != player.gameObject)
+                playerCamera.gameObject.SetActive(false);
 
         Canvas canvas = CreateCanvas(root.transform);
         if (!UnityEngine.Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None).Any())
@@ -125,6 +136,10 @@ public static class ArenaContentInstaller
         for (int i=0;i<pool.Count;i++) list.GetArrayElementAtIndex(i).objectReferenceValue = pool[i];
         data.FindProperty("menuCamera").objectReferenceValue = menu;
         data.FindProperty("gameplayCamera").objectReferenceValue = gameplay;
+        SerializedProperty cameras = data.FindProperty("gameplayCameras");
+        cameras.arraySize = playerCameras.Length;
+        for (int i = 0; i < playerCameras.Length; i++)
+            cameras.GetArrayElementAtIndex(i).objectReferenceValue = playerCameras[i];
         data.FindProperty("mainPanel").objectReferenceValue = main;
         data.FindProperty("settingsPanel").objectReferenceValue = settingsPanel;
         data.FindProperty("shopPanel").objectReferenceValue = shopPanel;
@@ -144,6 +159,50 @@ public static class ArenaContentInstaller
         UnityEventTools.AddPersistentListener(characterBuy.onClick, director.PurchaseCharacter);
         settingsPanel.SetActive(false); shopPanel.SetActive(false); banner.gameObject.SetActive(false);
         EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene); AssetDatabase.SaveAssets();
+    }
+
+    [MenuItem("Tools/Swordplay/Repair Launch Camera Flow")]
+    public static void RepairLaunchCameraFlow()
+    {
+        var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        PlayerWorker player = UnityEngine.Object.FindObjectsByType<PlayerWorker>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .First(value => value.gameObject.activeInHierarchy);
+        ArenaGameDirector director = UnityEngine.Object.FindFirstObjectByType<ArenaGameDirector>(FindObjectsInactive.Include);
+        Camera menu = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .First(value => value.name == "Arena Vista Menu Camera");
+        Camera[] playerCameras = player.GetComponentsInChildren<Camera>(true);
+        Camera primary = playerCameras.FirstOrDefault(value =>
+                             value.name.IndexOf("PlayerCamera", StringComparison.OrdinalIgnoreCase) >= 0)
+            ?? playerCameras.FirstOrDefault(value => value.CompareTag("MainCamera"))
+            ?? playerCameras.FirstOrDefault(value => value.enabled)
+            ?? playerCameras.First();
+
+        foreach (Camera camera in playerCameras)
+        {
+            camera.enabled = true;
+            camera.tag = "Untagged";
+            AudioListener listener = camera.GetComponent<AudioListener>();
+            if (listener != null) listener.enabled = camera == primary;
+            if (camera.gameObject != player.gameObject)
+                camera.gameObject.SetActive(false);
+            EditorUtility.SetDirty(camera);
+        }
+        menu.gameObject.SetActive(true);
+        menu.enabled = true;
+        menu.tag = "MainCamera";
+        AudioListener menuListener = menu.GetComponent<AudioListener>();
+        if (menuListener != null) menuListener.enabled = true;
+
+        SerializedObject data = new(director);
+        data.FindProperty("gameplayCamera").objectReferenceValue = primary;
+        SerializedProperty cameras = data.FindProperty("gameplayCameras");
+        cameras.arraySize = playerCameras.Length;
+        for (int i = 0; i < playerCameras.Length; i++)
+            cameras.GetArrayElementAtIndex(i).objectReferenceValue = playerCameras[i];
+        data.ApplyModifiedPropertiesWithoutUndo();
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        AssetDatabase.SaveAssets();
     }
 
     private static void ApplyVariant(EnemyWorker enemy, int index, Color effect)
