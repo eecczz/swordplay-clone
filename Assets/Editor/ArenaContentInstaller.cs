@@ -64,6 +64,9 @@ public static class ArenaContentInstaller
         Camera[] playerCameras = sceneCameras
             .Where(value => value.transform.IsChildOf(player.transform) || value.gameObject == player.gameObject)
             .ToArray();
+        Camera[] activeGameplayCameras = playerCameras
+            .Where(value => value.gameObject.activeSelf)
+            .ToArray();
         Camera gameplay = playerCameras
             .FirstOrDefault(value => value.name.IndexOf("PlayerCamera", StringComparison.OrdinalIgnoreCase) >= 0)
             ?? playerCameras.FirstOrDefault(value => value.gameObject.activeInHierarchy)
@@ -80,10 +83,7 @@ public static class ArenaContentInstaller
         }
         foreach (Camera playerCamera in playerCameras)
         {
-            playerCamera.enabled = true;
-            playerCamera.tag = "Untagged";
-            AudioListener listener = playerCamera.GetComponent<AudioListener>();
-            if (listener != null) listener.enabled = playerCamera == gameplay;
+            if (playerCamera == gameplay) playerCamera.tag = "MainCamera";
         }
         AudioListener gameplayListener = gameplay.GetComponent<AudioListener>();
         if (gameplayListener != null) gameplayListener.enabled = true;
@@ -92,9 +92,6 @@ public static class ArenaContentInstaller
         menu.tag = "MainCamera";
         menu.transform.position = player.transform.position - player.transform.forward * 18f + Vector3.up * 10f;
         menu.transform.LookAt(player.transform.position + Vector3.up * 2.5f);
-        foreach (Camera playerCamera in playerCameras)
-            if (playerCamera.gameObject != player.gameObject)
-                playerCamera.gameObject.SetActive(false);
 
         Canvas canvas = CreateCanvas(root.transform);
         if (!UnityEngine.Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None).Any())
@@ -137,9 +134,9 @@ public static class ArenaContentInstaller
         data.FindProperty("menuCamera").objectReferenceValue = menu;
         data.FindProperty("gameplayCamera").objectReferenceValue = gameplay;
         SerializedProperty cameras = data.FindProperty("gameplayCameras");
-        cameras.arraySize = playerCameras.Length;
-        for (int i = 0; i < playerCameras.Length; i++)
-            cameras.GetArrayElementAtIndex(i).objectReferenceValue = playerCameras[i];
+        cameras.arraySize = activeGameplayCameras.Length;
+        for (int i = 0; i < activeGameplayCameras.Length; i++)
+            cameras.GetArrayElementAtIndex(i).objectReferenceValue = activeGameplayCameras[i];
         data.FindProperty("mainPanel").objectReferenceValue = main;
         data.FindProperty("settingsPanel").objectReferenceValue = settingsPanel;
         data.FindProperty("shopPanel").objectReferenceValue = shopPanel;
@@ -171,6 +168,9 @@ public static class ArenaContentInstaller
         Camera menu = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None)
             .First(value => value.name == "Arena Vista Menu Camera");
         Camera[] playerCameras = player.GetComponentsInChildren<Camera>(true);
+        Camera[] activeGameplayCameras = playerCameras
+            .Where(value => value.name.IndexOf("WeaponCamera", StringComparison.OrdinalIgnoreCase) < 0)
+            .ToArray();
         Camera primary = playerCameras.FirstOrDefault(value =>
                              value.name.IndexOf("PlayerCamera", StringComparison.OrdinalIgnoreCase) >= 0)
             ?? playerCameras.FirstOrDefault(value => value.CompareTag("MainCamera"))
@@ -179,12 +179,8 @@ public static class ArenaContentInstaller
 
         foreach (Camera camera in playerCameras)
         {
-            camera.enabled = true;
-            camera.tag = "Untagged";
-            AudioListener listener = camera.GetComponent<AudioListener>();
-            if (listener != null) listener.enabled = camera == primary;
-            if (camera.gameObject != player.gameObject)
-                camera.gameObject.SetActive(false);
+            camera.tag = camera == primary ? "MainCamera" : "Untagged";
+            camera.gameObject.SetActive(activeGameplayCameras.Contains(camera));
             EditorUtility.SetDirty(camera);
         }
         menu.gameObject.SetActive(true);
@@ -196,9 +192,9 @@ public static class ArenaContentInstaller
         SerializedObject data = new(director);
         data.FindProperty("gameplayCamera").objectReferenceValue = primary;
         SerializedProperty cameras = data.FindProperty("gameplayCameras");
-        cameras.arraySize = playerCameras.Length;
-        for (int i = 0; i < playerCameras.Length; i++)
-            cameras.GetArrayElementAtIndex(i).objectReferenceValue = playerCameras[i];
+        cameras.arraySize = activeGameplayCameras.Length;
+        for (int i = 0; i < activeGameplayCameras.Length; i++)
+            cameras.GetArrayElementAtIndex(i).objectReferenceValue = activeGameplayCameras[i];
         data.ApplyModifiedPropertiesWithoutUndo();
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);

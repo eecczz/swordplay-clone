@@ -231,7 +231,9 @@ public sealed class ArenaGameDirector : MonoBehaviour
             camera.enabled = active;
             camera.tag = active && camera == primary ? "MainCamera" : "Untagged";
             AudioListener listener = camera.GetComponent<AudioListener>();
-            if (listener != null) listener.enabled = active && camera == primary;
+            // The authored player rig keeps its listener on the secondary Camera object,
+            // while PlayerCamera owns the MainCamera tag. Preserve that arrangement.
+            if (listener != null) listener.enabled = active;
         }
     }
 }

@@ -124511,11 +124511,11 @@ GameObject:
   - component: {fileID: 249379988}
   m_Layer: 6
   m_Name: 'PlayerCamera '
-  m_TagString: Untagged
+  m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &249379987
 Transform:
   m_ObjectHideFlags: 0
@@ -124586,7 +124586,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -632186,7 +632186,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!81 &1335234832
 AudioListener:
   m_ObjectHideFlags: 0
@@ -645939,7 +645939,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!20 &1358057243
 Camera:
   m_ObjectHideFlags: 0
@@ -700712,9 +700712,8 @@ MonoBehaviour:
   menuCamera: {fileID: 1828083372}
   gameplayCamera: {fileID: 249379989}
   gameplayCameras:
-  - {fileID: 1358057243}
-  - {fileID: 52125959}
   - {fileID: 249379989}
+  - {fileID: 1358057243}
   mainPanel: {fileID: 2123963824}
   settingsPanel: {fileID: 2035882220}
   shopPanel: {fileID: 1125146777}
