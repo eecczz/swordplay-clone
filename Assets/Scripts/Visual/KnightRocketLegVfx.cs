@@ -14,6 +14,12 @@ namespace Swordplay.Visuals
 
         public Color EffectColor => effectColor;
 
+        public void SetEffectColor(Color color)
+        {
+            effectColor = color;
+            Rebuild();
+        }
+
         public void Configure(Animator animator, Material material, Color color)
         {
             leftUpperLeg = animator != null ? animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg) : null;

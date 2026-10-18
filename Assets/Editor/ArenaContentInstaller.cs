@@ -6,6 +6,8 @@ using UnityEditor;
 using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.AI;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public static class ArenaContentInstaller
@@ -23,8 +25,12 @@ public static class ArenaContentInstaller
         var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         PlayerWorker player = UnityEngine.Object.FindObjectsByType<PlayerWorker>(FindObjectsInactive.Include, FindObjectsSortMode.None)
             .First(value => value.gameObject.activeInHierarchy);
-        EnemyWorker source = UnityEngine.Object.FindObjectsByType<EnemyWorker>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-            .First(value => value.gameObject.activeInHierarchy);
+        EnemyWorker[] existingEnemies = UnityEngine.Object.FindObjectsByType<EnemyWorker>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        EnemyWorker source = existingEnemies.FirstOrDefault(value => value.name == "Arena Enemy 01")
+            ?? existingEnemies.First(value => value.gameObject.activeInHierarchy);
+        foreach (EnemyWorker generated in existingEnemies)
+            if (generated != source && generated.name.StartsWith("Arena Enemy ", StringComparison.Ordinal))
+                UnityEngine.Object.DestroyImmediate(generated.gameObject);
 
         GameObject old = GameObject.Find("Arena Game Flow");
         if (old != null) UnityEngine.Object.DestroyImmediate(old);
@@ -34,6 +40,8 @@ public static class ArenaContentInstaller
         entrance.SetParent(root.transform);
         entrance.SetPositionAndRotation(player.transform.position + player.transform.forward * 15f,
             Quaternion.LookRotation(-player.transform.forward, Vector3.up));
+        if (NavMesh.SamplePosition(entrance.position, out NavMeshHit entranceHit, 12f, NavMesh.AllAreas))
+            entrance.position = entranceHit.position;
 
         var pool = new List<EnemyWorker> { source };
         source.name = "Arena Enemy 01";
@@ -43,14 +51,33 @@ public static class ArenaContentInstaller
             clone.name = $"Arena Enemy {i + 1:00}";
             pool.Add(clone.GetComponent<EnemyWorker>());
         }
+        Color playerEffect = player.GetComponent<KnightRocketLegVfx>()?.EffectColor ?? Color.cyan;
+        Color[] enemyEffects = Palette.OrderByDescending(color => ColorDistance(color, playerEffect)).Take(10).ToArray();
         for (int i = 0; i < pool.Count; i++)
         {
-            ApplyVariant(pool[i], i);
+            ApplyVariant(pool[i], i, enemyEffects[i]);
             pool[i].transform.SetPositionAndRotation(entrance.position, entrance.rotation);
             pool[i].gameObject.SetActive(false);
         }
 
-        Camera gameplay = Camera.main;
+        Camera[] sceneCameras = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Camera gameplay = sceneCameras
+            .Where(value => value.gameObject.activeInHierarchy && value.transform.IsChildOf(player.transform))
+            .FirstOrDefault()
+            ?? sceneCameras.First(value => value.gameObject.activeInHierarchy);
+        foreach (Camera other in sceneCameras)
+        {
+            if (other == gameplay) continue;
+            other.enabled = false;
+            if (other.CompareTag("MainCamera")) other.tag = "Untagged";
+            AudioListener listener = other.GetComponent<AudioListener>();
+            if (listener != null) listener.enabled = false;
+            EditorUtility.SetDirty(other);
+        }
+        gameplay.enabled = true;
+        gameplay.tag = "MainCamera";
+        AudioListener gameplayListener = gameplay.GetComponent<AudioListener>();
+        if (gameplayListener != null) gameplayListener.enabled = true;
         Camera menu = UnityEngine.Object.Instantiate(gameplay, root.transform);
         menu.name = "Arena Vista Menu Camera";
         menu.tag = "Untagged";
@@ -59,6 +86,8 @@ public static class ArenaContentInstaller
         gameplay.gameObject.SetActive(false);
 
         Canvas canvas = CreateCanvas(root.transform);
+        if (!UnityEngine.Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None).Any())
+            new GameObject("Arena Event System", typeof(EventSystem), typeof(StandaloneInputModule)).transform.SetParent(root.transform);
         Text currency = MakeText(canvas.transform, "Currency", "● 0     ◆ 0", 28, TextAnchor.UpperRight,
             new Vector2(1,1), new Vector2(1,1), new Vector2(-38,-30), new Vector2(420,55));
         GameObject main = MakePanel(canvas.transform, "Main Menu", new Color(.02f,.035f,.07f,.24f));
@@ -80,8 +109,10 @@ public static class ArenaContentInstaller
         GameObject shopPanel = MakePanel(canvas.transform, "Shop", new Color(.015f,.025f,.06f,.38f));
         MakeText(shopPanel.transform, "Shop Title", "SHOP", 46, TextAnchor.MiddleCenter,
             new Vector2(.5f,.84f), new Vector2(.5f,.84f), Vector2.zero, new Vector2(500,70));
-        MakeShopCard(shopPanel.transform, "WEAPON AURA SKINS", new Vector2(-245,10), new Color(.15f,.8f,1f,.72f));
-        MakeShopCard(shopPanel.transform, "CHARACTERS", new Vector2(245,10), new Color(1f,.42f,.62f,.72f));
+        Button weaponAuraBuy = MakeShopCard(shopPanel.transform, "WEAPON AURA SKINS", "BUY  ● 50", new Vector2(-245,10), new Color(.15f,.8f,1f,.72f));
+        Button characterBuy = MakeShopCard(shopPanel.transform, "CHARACTERS", "BUY  ● 100", new Vector2(245,10), new Color(1f,.42f,.62f,.72f));
+        Text shopStatus = MakeText(shopPanel.transform, "Shop Status", "DEFEAT ENEMIES TO EARN GOLD", 20, TextAnchor.MiddleCenter,
+            new Vector2(.5f,.22f), new Vector2(.5f,.22f), Vector2.zero, new Vector2(700,42));
         Button shopBack = MakeButton(shopPanel.transform, "BACK", new Vector2(0,-230));
         Text banner = MakeText(canvas.transform, "Start Banner", "START!", 82, TextAnchor.MiddleCenter,
             new Vector2(.5f,.5f), new Vector2(.5f,.5f), Vector2.zero, new Vector2(700,120));
@@ -102,19 +133,21 @@ public static class ArenaContentInstaller
         data.FindProperty("sensitivitySlider").objectReferenceValue = sensitivity;
         data.FindProperty("volumeSlider").objectReferenceValue = volume;
         data.FindProperty("soundToggle").objectReferenceValue = sound;
+        data.FindProperty("shopStatusText").objectReferenceValue = shopStatus;
         data.ApplyModifiedPropertiesWithoutUndo();
         UnityEventTools.AddPersistentListener(start.onClick, director.StartGame);
         UnityEventTools.AddPersistentListener(settings.onClick, director.ShowSettings);
         UnityEventTools.AddPersistentListener(shop.onClick, director.ShowShop);
         UnityEventTools.AddPersistentListener(settingsBack.onClick, director.BackToMain);
         UnityEventTools.AddPersistentListener(shopBack.onClick, director.BackToMain);
+        UnityEventTools.AddPersistentListener(weaponAuraBuy.onClick, director.PurchaseWeaponAuraSkin);
+        UnityEventTools.AddPersistentListener(characterBuy.onClick, director.PurchaseCharacter);
         settingsPanel.SetActive(false); shopPanel.SetActive(false); banner.gameObject.SetActive(false);
         EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene); AssetDatabase.SaveAssets();
     }
 
-    private static void ApplyVariant(EnemyWorker enemy, int index)
+    private static void ApplyVariant(EnemyWorker enemy, int index, Color effect)
     {
-        Color effect = Palette[(index + 1) % Palette.Length];
         var rocket = enemy.GetComponent<KnightRocketLegVfx>();
         if (rocket != null)
         {
@@ -140,6 +173,9 @@ public static class ArenaContentInstaller
         }
     }
 
+    private static float ColorDistance(Color a, Color b) =>
+        (new Vector3(a.r, a.g, a.b) - new Vector3(b.r, b.g, b.b)).sqrMagnitude;
+
     private static Canvas CreateCanvas(Transform parent) { var go=new GameObject("Arena UI",typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));go.transform.SetParent(parent);var c=go.GetComponent<Canvas>();c.renderMode=RenderMode.ScreenSpaceOverlay;var s=go.GetComponent<CanvasScaler>();s.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;s.referenceResolution=new Vector2(1920,1080);return c; }
     private static GameObject MakePanel(Transform p,string n,Color c){var g=new GameObject(n,typeof(RectTransform),typeof(Image));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=r.offsetMax=Vector2.zero;g.GetComponent<Image>().color=c;return g;}
     private static Font Font()=>Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -147,5 +183,5 @@ public static class ArenaContentInstaller
     private static Button MakeButton(Transform p,string label,Vector2 pos){var g=new GameObject(label,typeof(RectTransform),typeof(Image),typeof(Button));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.sizeDelta=new Vector2(360,58);r.anchoredPosition=pos;g.GetComponent<Image>().color=new Color(.08f,.13f,.2f,.9f);var t=MakeText(g.transform,"Label",label,25,TextAnchor.MiddleCenter,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);t.rectTransform.offsetMin=t.rectTransform.offsetMax=Vector2.zero;return g.GetComponent<Button>();}
     private static Slider MakeSlider(Transform p,string n,string label,Vector2 pos,float min,float max,float value){MakeText(p,n+" Label",label,22,TextAnchor.MiddleRight,new Vector2(.5f,.5f),new Vector2(.5f,.5f),pos+new Vector2(-230,0),new Vector2(180,42));var g=new GameObject(n,typeof(RectTransform),typeof(Slider));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.sizeDelta=new Vector2(360,36);r.anchoredPosition=pos+new Vector2(80,0);var bg=new GameObject("Background",typeof(RectTransform),typeof(Image));bg.transform.SetParent(g.transform,false);((RectTransform)bg.transform).anchorMin=Vector2.zero;((RectTransform)bg.transform).anchorMax=Vector2.one;bg.GetComponent<Image>().color=new Color(.1f,.15f,.22f,.9f);var fill=new GameObject("Fill",typeof(RectTransform),typeof(Image));fill.transform.SetParent(bg.transform,false);fill.GetComponent<Image>().color=new Color(.2f,.8f,1f,.9f);var s=g.GetComponent<Slider>();s.fillRect=(RectTransform)fill.transform;s.minValue=min;s.maxValue=max;s.value=value;return s;}
     private static Toggle MakeToggle(Transform p,string n,string label,Vector2 pos){var g=new GameObject(n,typeof(RectTransform),typeof(Image),typeof(Toggle));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.sizeDelta=new Vector2(38,38);r.anchoredPosition=pos+new Vector2(80,0);g.GetComponent<Image>().color=new Color(.1f,.15f,.22f,.9f);var mark=new GameObject("Checkmark",typeof(RectTransform),typeof(Image));mark.transform.SetParent(g.transform,false);((RectTransform)mark.transform).anchorMin=Vector2.zero;((RectTransform)mark.transform).anchorMax=Vector2.one;mark.GetComponent<Image>().color=new Color(.2f,1f,.6f);var t=g.GetComponent<Toggle>();t.graphic=mark.GetComponent<Image>();t.isOn=true;MakeText(p,n+" Label",label,22,TextAnchor.MiddleRight,new Vector2(.5f,.5f),new Vector2(.5f,.5f),pos+new Vector2(-120,0),new Vector2(300,42));return t;}
-    private static void MakeShopCard(Transform p,string label,Vector2 pos,Color c){var g=new GameObject(label,typeof(RectTransform),typeof(Image));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.sizeDelta=new Vector2(410,360);r.anchoredPosition=pos;g.GetComponent<Image>().color=new Color(.04f,.07f,.12f,.92f);var preview=new GameObject("Preview",typeof(RectTransform),typeof(Image));preview.transform.SetParent(g.transform,false);var pr=(RectTransform)preview.transform;pr.anchorMin=new Vector2(.08f,.28f);pr.anchorMax=new Vector2(.92f,.9f);pr.offsetMin=pr.offsetMax=Vector2.zero;preview.GetComponent<Image>().color=c;MakeText(g.transform,"Name",label,25,TextAnchor.MiddleCenter,new Vector2(.5f,.12f),new Vector2(.5f,.12f),Vector2.zero,new Vector2(370,60));}
+    private static Button MakeShopCard(Transform p,string label,string purchaseLabel,Vector2 pos,Color c){var g=new GameObject(label,typeof(RectTransform),typeof(Image));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.sizeDelta=new Vector2(410,360);r.anchoredPosition=pos;g.GetComponent<Image>().color=new Color(.04f,.07f,.12f,.92f);var preview=new GameObject("Preview",typeof(RectTransform),typeof(Image));preview.transform.SetParent(g.transform,false);var pr=(RectTransform)preview.transform;pr.anchorMin=new Vector2(.08f,.34f);pr.anchorMax=new Vector2(.92f,.9f);pr.offsetMin=pr.offsetMax=Vector2.zero;preview.GetComponent<Image>().color=c;MakeText(g.transform,"Name",label,25,TextAnchor.MiddleCenter,new Vector2(.5f,.23f),new Vector2(.5f,.23f),Vector2.zero,new Vector2(370,52));var buy=MakeButton(g.transform,purchaseLabel,new Vector2(0,-135));((RectTransform)buy.transform).sizeDelta=new Vector2(280,50);return buy;}
 }

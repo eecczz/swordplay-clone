@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Swordplay.Visuals;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,7 +13,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
     [SerializeField] private PlayerWorker player;
     [SerializeField] private Transform entranceSpawn;
     [SerializeField] private List<EnemyWorker> enemyPool = new();
-    [SerializeField, Range(1, 10)] private int initialActiveEnemies = 8;
+    [SerializeField, Range(1, 10)] private int initialActiveEnemies = 10;
     [SerializeField, Min(0.05f)] private float entranceInterval = 0.32f;
     [SerializeField, Min(0.2f)] private float recycleDelay = 1.25f;
 
@@ -27,6 +28,9 @@ public sealed class ArenaGameDirector : MonoBehaviour
     [SerializeField] private Slider sensitivitySlider;
     [SerializeField] private Slider volumeSlider;
     [SerializeField] private Toggle soundToggle;
+    [SerializeField] private Text shopStatusText;
+    [SerializeField, Min(1)] private int weaponAuraPrice = 50;
+    [SerializeField, Min(1)] private int characterPrice = 100;
 
     private readonly Queue<EnemyWorker> available = new();
     private int gold;
@@ -60,6 +64,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
         shopPanel?.SetActive(false);
         if (menuCamera != null) menuCamera.gameObject.SetActive(false);
         if (gameplayCamera != null) gameplayCamera.gameObject.SetActive(true);
+        if (player != null) player.enabled = true;
         Time.timeScale = 1f;
         StartCoroutine(BeginArena());
     }
@@ -118,6 +123,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
         shopPanel?.SetActive(false);
         if (menuCamera != null) menuCamera.gameObject.SetActive(true);
         if (gameplayCamera != null) gameplayCamera.gameObject.SetActive(false);
+        if (player != null) player.enabled = false;
         Time.timeScale = 0f;
     }
 
@@ -138,5 +144,50 @@ public sealed class ArenaGameDirector : MonoBehaviour
     private void RefreshCurrency()
     {
         if (currencyText != null) currencyText.text = $"● {gold:N0}     ◆ {diamonds:N0}";
+    }
+
+    public void PurchaseWeaponAuraSkin()
+    {
+        if (!TrySpendGold(weaponAuraPrice, "NOT ENOUGH GOLD")) return;
+        int owned = PlayerPrefs.GetInt("ArenaWeaponAuraSkins", 0) + 1;
+        PlayerPrefs.SetInt("ArenaWeaponAuraSkins", owned);
+        Color[] palette =
+        {
+            new(.18f, .82f, 1f), new(1f, .32f, .55f), new(1f, .72f, .18f),
+            new(.35f, 1f, .52f), new(.72f, .4f, 1f)
+        };
+        Color color = palette[(owned - 1) % palette.Length];
+        KnightRocketLegVfx rocket = player != null ? player.GetComponent<KnightRocketLegVfx>() : null;
+        if (rocket != null) rocket.SetEffectColor(color);
+        if (player != null)
+            foreach (BrokenEdgeBladeVfx blade in player.GetComponentsInChildren<BrokenEdgeBladeVfx>(true))
+                blade.SetEffectColors(color * 2.2f, Color.Lerp(color, Color.white, .7f));
+        SetShopStatus($"AURA SKIN {owned} EQUIPPED");
+    }
+
+    public void PurchaseCharacter()
+    {
+        if (!TrySpendGold(characterPrice, "NOT ENOUGH GOLD")) return;
+        int owned = PlayerPrefs.GetInt("ArenaOwnedCharacters", 1) + 1;
+        PlayerPrefs.SetInt("ArenaOwnedCharacters", owned);
+        SetShopStatus($"CHARACTER {owned} UNLOCKED");
+    }
+
+    private bool TrySpendGold(int price, string failureMessage)
+    {
+        if (gold < price)
+        {
+            SetShopStatus(failureMessage);
+            return false;
+        }
+        gold -= price;
+        PlayerPrefs.SetInt("ArenaGold", gold);
+        RefreshCurrency();
+        return true;
+    }
+
+    private void SetShopStatus(string value)
+    {
+        if (shopStatusText != null) shopStatusText.text = value;
     }
 }

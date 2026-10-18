@@ -50,6 +50,7 @@ public class PlayerWorker : MonoBehaviour
     private CharacterController characterController;
     private NavMeshAgent nav;
     private GameObject navigationTarget;
+    private Vector3 lastTargetDirection = Vector3.forward;
     private float navigationTargetRefreshTimer;
     private bool holdingCombatDistance;
     private Vector2 movementInput;
@@ -350,8 +351,7 @@ public class PlayerWorker : MonoBehaviour
         {
             if (FindClosestEnemy()!= null)
             {
-                entAnim = ent.GetComponent<Animator>();
-                onTarget = true;
+                AssignCombatTarget(ent);
             }
         }
         if (onTarget && ent != null)
@@ -367,7 +367,11 @@ public class PlayerWorker : MonoBehaviour
         }
         if (!onTarget || ent == null)
             hasFacingTarget = false;
-        Camera.main.transform.position = new Vector3(anim.GetBoneTransform(HumanBodyBones.Spine).position.x, anim.GetBoneTransform(HumanBodyBones.Hips).position.y + camPos.y, anim.GetBoneTransform(HumanBodyBones.Spine).position.z) - transform.forward * camPos.z;
+        Camera activeCamera = Camera.main;
+        Transform spineBone = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Spine) : null;
+        Transform hipsBone = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Hips) : null;
+        if (activeCamera != null && spineBone != null && hipsBone != null)
+            activeCamera.transform.position = new Vector3(spineBone.position.x, hipsBone.position.y + camPos.y, spineBone.position.z) - transform.forward * camPos.z;
         //Camera.main.transform.rotation = Quaternion.Euler(new Vector3(20, transform.rotation.eulerAngles.y, 0));
         /*if (!IsStuffInView())
         {
@@ -580,16 +584,13 @@ public class PlayerWorker : MonoBehaviour
             // refresh; target swapping would repeatedly cancel the combat-distance hold.
             GameObject refreshedTarget = IsValidNavigationTarget(navigationTarget)
                 ? navigationTarget
-                : FindFrontEnemyForNavigation();
+                : navigationTarget != null
+                    ? FindAdjacentEnemy(navigationTarget.transform.position - transform.position)
+                    : FindFrontEnemyForNavigation();
             if (refreshedTarget != navigationTarget)
                 holdingCombatDistance = false;
             navigationTarget = refreshedTarget;
-            if (navigationTarget != null)
-            {
-                ent = navigationTarget;
-                entAnim = navigationTarget.GetComponent<Animator>();
-                onTarget = entAnim != null;
-            }
+            AssignCombatTarget(navigationTarget);
         }
 
         if (!IsValidNavigationTarget(navigationTarget))
@@ -674,6 +675,55 @@ public class PlayerWorker : MonoBehaviour
             bestScore = score;
         }
         return closest;
+    }
+
+    private GameObject FindAdjacentEnemy(Vector3 previousDirection)
+    {
+        previousDirection.y = 0f;
+        if (previousDirection.sqrMagnitude < 0.0001f)
+            previousDirection = lastTargetDirection.sqrMagnitude > 0.0001f
+                ? lastTargetDirection
+                : transform.forward;
+        previousDirection.Normalize();
+
+        GameObject adjacent = null;
+        float smallestAngle = float.PositiveInfinity;
+        float nearestDistance = float.PositiveInfinity;
+        foreach (GameObject candidate in GameObject.FindGameObjectsWithTag("Enemy"))
+        {
+            if (!IsValidNavigationTarget(candidate)) continue;
+            Vector3 direction = candidate.transform.position - transform.position;
+            direction.y = 0f;
+            float distance = direction.magnitude;
+            if (distance < 0.001f) continue;
+            float angle = Mathf.Abs(Vector3.SignedAngle(previousDirection, direction / distance, Vector3.up));
+            if (angle > smallestAngle + 0.01f
+                || (Mathf.Abs(angle - smallestAngle) <= 0.01f && distance >= nearestDistance))
+                continue;
+            adjacent = candidate;
+            smallestAngle = angle;
+            nearestDistance = distance;
+        }
+        return adjacent ?? FindFrontEnemyForNavigation();
+    }
+
+    private void AssignCombatTarget(GameObject target)
+    {
+        ent = target;
+        if (target == null)
+        {
+            entAnim = null;
+            onTarget = false;
+            return;
+        }
+
+        Vector3 direction = target.transform.position - transform.position;
+        direction.y = 0f;
+        if (direction.sqrMagnitude > 0.0001f)
+            lastTargetDirection = direction.normalized;
+        entAnim = target.GetComponent<Animator>()
+            ?? target.GetComponentInChildren<Animator>(true);
+        onTarget = entAnim != null;
     }
 
     private static bool IsValidNavigationTarget(GameObject candidate)

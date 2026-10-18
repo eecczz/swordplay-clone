@@ -102,6 +102,13 @@ namespace Swordplay.Visuals
             public float Time;
         }
 
+        public void SetEffectColors(Color glow, Color core)
+        {
+            glowColor = glow;
+            coreColor = core;
+            QueueAuraRebuild();
+        }
+
         public bool Configure(Transform owner)
         {
             return Configure(owner, null);
