@@ -54,6 +54,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
         if (startBanner != null) startBanner.gameObject.SetActive(false);
         if (volumeSlider != null) volumeSlider.value = PlayerPrefs.GetFloat("ArenaVolume", 1f);
         if (soundToggle != null) soundToggle.isOn = PlayerPrefs.GetInt("ArenaSound", 1) != 0;
+        MedievalUiTheme.Apply(mainPanel, settingsPanel, shopPanel, startBanner, currencyText);
         ApplyAudioSettings();
     }
 

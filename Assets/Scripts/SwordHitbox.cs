@@ -170,7 +170,13 @@ public sealed class SwordHitbox : MonoBehaviour
         if (playerOwner != null)
         {
             EnemyWorker receiver = target.GetComponentInParent<EnemyWorker>();
-            if (receiver == null || !hitReceivers.Add(receiver.GetInstanceID())) return;
+            // A player swing is authoritative only against the currently selected ent.
+            // Ignore every other overlap before deduplication or ReceiveSwordHit so that
+            // guard, hurt, knockback, VFX and SFX events are never raised for bystanders.
+            if (receiver == null || PlayerWorker.ent == null
+                    || receiver.gameObject != PlayerWorker.ent
+                    || !hitReceivers.Add(receiver.GetInstanceID()))
+                return;
             receiver.ReceiveSwordHit(playerOwner, source, target, hitPoint, observedAttackSequence);
         }
         else if (enemyOwner != null)
