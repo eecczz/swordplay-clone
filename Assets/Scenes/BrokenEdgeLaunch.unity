@@ -15341,11 +15341,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 1094642005}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -15355,6 +15369,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -15365,6 +15385,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1068748048}
   rightArmIK: {fileID: 855412059}
   leftArmIK: {fileID: 1236411255}
@@ -36541,7 +36563,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 76839722}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -49261,7 +49283,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 106019382}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -66587,7 +66609,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 144868840}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -93122,6 +93144,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: P_PROP_debris_stones_dungeon_03
       objectReference: {fileID: 0}
+    - target: {fileID: 5873456552843146715, guid: 9402718bed6807b4fa38e8d534e90da3, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7483272038097946568, guid: 9402718bed6807b4fa38e8d534e90da3, type: 3}
       propertyPath: m_RootOrder
       value: 336
@@ -117505,7 +117531,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -152058,17 +152084,27 @@ MonoBehaviour:
   canSwing: 10
   health: 10
   attackSlowTrigger: 0.1
-  attackSlowSpeed: 0.01
+  attackSlowSpeed: 0.02
   attackSlowDuration: 1
   attackSpeedRestoreSharpness: 8
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 1}
+  swordSlashMaterialOverride: {fileID: 0}
   maxStepHeight: 0.45
   maxSlopeAngle: 55
   movementSkin: 0.03
   groundAcceleration: 35
   airAcceleration: 8
   facingLerpSpeed: 5
+  targetSwitchAttackGrace: 0.65
+  targetFacingReadyAngle: 12
+  targetFacingReadyHold: 0.18
   knockbackDistance: 0.5
   knockbackSlideDamping: 6
   knockbackStopSpeed: 0.15
@@ -152324,8 +152360,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330231342}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0.38268343, z: 0, w: 0.92387956}
-  m_LocalPosition: {x: -93.21, y: -2.28, z: -4.74}
+  m_LocalRotation: {x: -0, y: -0.70710677, z: -0, w: 0.7071069}
+  m_LocalPosition: {x: -16.637741, y: -8.87, z: 15.678894}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -152339,7 +152375,7 @@ Transform:
   - {fileID: 1814568}
   - {fileID: 1358057246}
   - {fileID: 249379987}
-  m_Father: {fileID: 1849868939}
+  m_Father: {fileID: 1472399150}
   m_LocalEulerAnglesHint: {x: 0, y: -45, z: 0}
 --- !u!195 &330231353
 NavMeshAgent:
@@ -164484,7 +164520,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 350226876}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -177596,11 +177632,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 1393012812}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -177610,6 +177660,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -177620,6 +177676,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1685990671}
   rightArmIK: {fileID: 998530314}
   leftArmIK: {fileID: 1665854982}
@@ -225375,11 +225433,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 1780795770}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -225389,6 +225461,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -225399,6 +225477,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 312014570}
   rightArmIK: {fileID: 298483020}
   leftArmIK: {fileID: 1981849425}
@@ -250667,11 +250747,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 2129879810}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -250681,6 +250775,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -250691,6 +250791,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 2024813099}
   rightArmIK: {fileID: 1210838519}
   leftArmIK: {fileID: 560607112}
@@ -288070,11 +288172,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 545928191}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -288084,6 +288200,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -288094,6 +288216,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 281438479}
   rightArmIK: {fileID: 550526050}
   leftArmIK: {fileID: 1357966960}
@@ -296366,7 +296490,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 640658700}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -317224,7 +317348,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 677899728}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -328548,11 +328672,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 2145242008}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -328562,6 +328700,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -328572,6 +328716,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 916823604}
   rightArmIK: {fileID: 1295295369}
   leftArmIK: {fileID: 721335732}
@@ -362680,11 +362826,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 492730131}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -362694,6 +362854,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -362704,6 +362870,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1710404503}
   rightArmIK: {fileID: 1705018220}
   leftArmIK: {fileID: 391804053}
@@ -406864,7 +407032,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 891752105}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -446618,11 +446786,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 418731920}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -446632,6 +446814,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -446642,6 +446830,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 146654640}
   rightArmIK: {fileID: 795757477}
   leftArmIK: {fileID: 31996918}
@@ -482057,11 +482247,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 588323195}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -482071,6 +482275,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -482081,6 +482291,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1892276886}
   rightArmIK: {fileID: 1573696307}
   leftArmIK: {fileID: 1850876037}
@@ -560730,7 +560942,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1242336940}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -585409,12 +585621,22 @@ MonoBehaviour:
   attackSpeedRestoreSharpness: 8
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   maxStepHeight: 0.45
   maxSlopeAngle: 55
   movementSkin: 0.03
   groundAcceleration: 35
   airAcceleration: 8
   facingLerpSpeed: 10
+  targetSwitchAttackGrace: 0.65
+  targetFacingReadyAngle: 12
+  targetFacingReadyHold: 0.18
   knockbackDistance: 5
   knockbackSlideDamping: 6
   knockbackStopSpeed: 0.15
@@ -628690,11 +628912,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 1814141427}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -628704,6 +628940,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -628714,6 +628956,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 29015650}
   rightArmIK: {fileID: 807157831}
   leftArmIK: {fileID: 1755484997}
@@ -657339,7 +657583,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1448106928}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -666269,6 +666513,7 @@ MonoBehaviour:
   initialActiveEnemies: 5
   entranceInterval: 0.32
   recycleDelay: 0.35
+  enemyTempoMultiplierPerDefeat: 0.94
   menuCamera: {fileID: 1828083372}
   gameplayCamera: {fileID: 249379989}
   gameplayCameras:
@@ -666298,6 +666543,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 330231352}
   - {fileID: 748873477}
   - {fileID: 1828083375}
   - {fileID: 851367308}
@@ -666547,6 +666793,10 @@ PrefabInstance:
     - target: {fileID: 1630244005043166505, guid: 721f04e09481cad4ca563f26a43f3eda, type: 3}
       propertyPath: m_Name
       value: P_PROP_ladder_dungeon_01
+      objectReference: {fileID: 0}
+    - target: {fileID: 1630244005043166505, guid: 721f04e09481cad4ca563f26a43f3eda, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2361174359627280186, guid: 721f04e09481cad4ca563f26a43f3eda, type: 3}
       propertyPath: m_RootOrder
@@ -681976,11 +682226,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 523133477}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -681990,6 +682254,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -682000,6 +682270,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1534837551}
   rightArmIK: {fileID: 716341869}
   leftArmIK: {fileID: 1972147794}
@@ -738587,11 +738859,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 1193491089}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -738601,6 +738887,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -738611,6 +738903,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1706636978}
   rightArmIK: {fileID: 597800027}
   leftArmIK: {fileID: 1799336562}
@@ -739047,7 +739341,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1644627970}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -770600,11 +770894,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 394412220}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -770614,6 +770922,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -770624,6 +770938,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1794443594}
   rightArmIK: {fileID: 1772288384}
   leftArmIK: {fileID: 1307471110}
@@ -787282,11 +787598,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 1781559223}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -787296,6 +787626,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -787306,6 +787642,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 563500165}
   rightArmIK: {fileID: 1242635335}
   leftArmIK: {fileID: 1538905900}
@@ -823606,7 +823944,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.77, g: 0.76, b: 0.89, a: 1}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -837336,7 +837674,6 @@ Transform:
   - {fileID: 1302442729}
   - {fileID: 5511375790350856640}
   - {fileID: 3085731112416920816}
-  - {fileID: 330231352}
   - {fileID: 1741698437}
   - {fileID: 524277692}
   - {fileID: 993147732}
@@ -889497,11 +889834,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 1824262822}
   headRotOffset: {x: 0, y: 0, z: 0}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -889511,6 +889862,12 @@ MonoBehaviour:
   engagementRadius: 3
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -889521,6 +889878,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1318714239}
   rightArmIK: {fileID: 150443709}
   leftArmIK: {fileID: 1675564517}
@@ -928937,7 +929296,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2051942023}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e8448b19a247b792afe6c9c9d7f101, type: 3}
   m_Name: 
@@ -971170,11 +971529,25 @@ MonoBehaviour:
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   ma: {fileID: 2071867328}
   headRotOffset: {x: -180, y: -90, z: 90}
   headOffsetIsRootLocal: 0
   headLookSpeed: 12
-  guardRate: 30
+  startingGuardRate: 50
+  minimumGuardRate: 10
+  guardRateMultiplierPerDefeat: 0.94
+  basePoseLerp: 0.01
+  baseAttackPoseLerp: 0.1
+  poseLerpMultiplierPerDefeat: 1.06
+  minimumPoseLerp: 0.01
+  maximumPoseLerp: 0.5
   health: 1000
   attackSlowTrigger: 0.1
   attackSlowSpeed: 0.01
@@ -971184,6 +971557,12 @@ MonoBehaviour:
   engagementRadius: 4.5
   slotSampleRadius: 2.5
   destinationRefreshInterval: 0.12
+  formationRouteClearance: 1.8
+  formationArcStepDegrees: 24
+  formationWaypointTolerance: 0.55
+  formationOppositeLaneSeparation: 0.8
+  slotArrivalTolerance: 0.8
+  slotDepartureTolerance: 1.35
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -971194,6 +971573,8 @@ MonoBehaviour:
   cool1Frames: 100
   coolFramesRange: {x: 100, y: 500}
   guardFramesRange: {x: 500, y: 1000}
+  minimumActionCooldown: 0.25
+  minimumGuardDuration: 1
   weaponBlend: {fileID: 1458800578}
   rightArmIK: {fileID: 1009113933}
   leftArmIK: {fileID: 693819087}
@@ -975259,12 +975640,22 @@ MonoBehaviour:
   attackSpeedRestoreSharpness: 8
   attackHitStart: 0
   attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
   maxStepHeight: 0.45
   maxSlopeAngle: 55
   movementSkin: 0.03
   groundAcceleration: 35
   airAcceleration: 8
   facingLerpSpeed: 10
+  targetSwitchAttackGrace: 0.65
+  targetFacingReadyAngle: 12
+  targetFacingReadyHold: 0.18
   knockbackDistance: 5
   knockbackSlideDamping: 6
   knockbackStopSpeed: 0.15

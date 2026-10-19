@@ -32,6 +32,15 @@ public class EnemyWorker : MonoBehaviour
     [Header("Attack hit detection")]
     [SerializeField, Range(0f, 1f)] private float attackHitStart = 0f;
     [SerializeField, Range(0f, 1.2f)] private float attackHitEnd = 1.05f;
+    [Header("Sword slash VFX")]
+    [Tooltip("Length of the motion-synced slash ribbon, measured in blade lengths.")]
+    [SerializeField, Min(0.25f)] private float swordSlashTravelInBladeLengths = 2.25f;
+    [SerializeField, Range(0.25f, 1.5f)] private float swordSlashBladeWidth = 1f;
+    [SerializeField, Range(0.1f, 2f)] private float swordSlashIntensity = 1.1f;
+    [SerializeField, Range(0f, 1f)] private float swordSlashTextureFlow = 0.16f;
+    [SerializeField] private bool swordSlashUseWeaponEffectColor = true;
+    [SerializeField, ColorUsage(true, true)] private Color swordSlashColor = new(1.2f, 0.35f, 0.08f, 0.9f);
+    [SerializeField] private Material swordSlashMaterialOverride;
     private int cool = 100;
     private int cool1 = 100;
     private float guardTime = -1;
@@ -52,7 +61,18 @@ public class EnemyWorker : MonoBehaviour
     private bool headLookDirectionInitialized;
     private Quaternion headAxisCorrection;
     private bool headAxisCorrectionInitialized;
-    [SerializeField] private int guardRate = 20;
+    [Header("Difficulty scaling")]
+    [SerializeField, Range(0f, 100f)] private float startingGuardRate = 50f;
+    [SerializeField, Range(0f, 100f)] private float minimumGuardRate = 10f;
+    [Tooltip("Current guard chance is multiplied by this percentage after every defeat.")]
+    [SerializeField, Range(0.5f, 0.99f)] private float guardRateMultiplierPerDefeat = 0.94f;
+    [Tooltip("Per-reference-frame pose interpolation before difficulty scaling.")]
+    [SerializeField, Range(0.001f, 0.5f)] private float basePoseLerp = 0.01f;
+    [SerializeField, Range(0.001f, 0.5f)] private float baseAttackPoseLerp = 0.1f;
+    [Tooltip("Pose interpolation speed is multiplied by this after every defeat.")]
+    [SerializeField, Range(1.01f, 2f)] private float poseLerpMultiplierPerDefeat = 1.06f;
+    [SerializeField, Range(0.001f, 0.5f)] private float minimumPoseLerp = 0.01f;
+    [SerializeField, Range(0.01f, 0.5f)] private float maximumPoseLerp = 0.5f;
     [SerializeField] private int health = 2;
     [Header("Attack reaction window")]
     [SerializeField, Range(0f, 0.5f)] private float attackSlowTrigger = 0.1f;
@@ -71,6 +91,13 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] private float engagementRadius = 4.5f;
     [SerializeField] private float slotSampleRadius = 2.5f;
     [SerializeField] private float destinationRefreshInterval = 0.12f;
+    [Header("Formation route around player")]
+    [Tooltip("Enemies first join this outer ring, travel clockwise, then enter their slot radially.")]
+    [SerializeField, Min(0.75f)] private float formationRouteClearance = 1.8f;
+    [SerializeField, Range(8f, 45f)] private float formationArcStepDegrees = 24f;
+    [SerializeField, Range(0.2f, 1.5f)] private float formationWaypointTolerance = 0.55f;
+    [Tooltip("Temporary spacing between clockwise/counter-clockwise travel lanes. This does not create extra combat slots.")]
+    [SerializeField, Range(0.25f, 1.5f)] private float formationOppositeLaneSeparation = 0.8f;
     private float destinationRefreshTimer;
     private Vector3 directPursuitTarget;
     private bool useDirectPursuit;
@@ -79,6 +106,18 @@ public class EnemyWorker : MonoBehaviour
     private Vector3 lastRequestedSlot;
     private bool hasRequestedSlot;
     private NavMeshPath slotPathProbe;
+    private Vector3 reachableSlotPosition;
+    private int reachableSlotIndex = -1;
+    private bool hasReachableSlotPosition;
+    [Header("Formation arrival state")]
+    [SerializeField, Range(0.35f, 1.5f)] private float slotArrivalTolerance = 0.8f;
+    [SerializeField, Range(0.5f, 2.5f)] private float slotDepartureTolerance = 1.35f;
+    private int arrivalTrackedSlot = -1;
+    private bool slotArrivalLatched;
+    private enum FormationRouteStage { ExitToOuterRing, OrbitOuterRing, EnterAssignedSlot, Arrived }
+    private FormationRouteStage formationRouteStage = FormationRouteStage.ExitToOuterRing;
+    private int routedSlot = -1;
+    private int formationOrbitDirection = 1;
     [SerializeField, Min(0.2f)] private float knockbackMaxTime = 1.5f;
     [SerializeField, Min(0.01f)] private float knockbackStopSpeed = 0.15f;
     [SerializeField, Min(0.5f)] private float knockbackDistance = 5f;
@@ -106,12 +145,11 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField] int cool1Frames = 100;            // 기존: 100
     [SerializeField] Vector2Int coolFramesRange = new(100, 500);   // 기존: 100~500
     [SerializeField] Vector2Int guardFramesRange = new(500, 1000); // 기존: 500~1000
+    [SerializeField, Min(0.05f)] float minimumActionCooldown = 0.25f;
+    [SerializeField, Min(1f)] float minimumGuardDuration = 1f;
 
     float cool1Timer, coolTimer, guardTimer; // seconds
 
-    // ------- 보간 속도(초당) : 기존 0.01/0.1 per-frame과 동일 체감 되도록 변환 -------
-    // per-frame alpha≈0.1 → k≈-fps*ln(0.9), 0.01 → k≈-fps*ln(0.99)
-    float kSlow, kFast;
     GameObject rightTemp, leftTemp;
 
     [Header("Rig refs")]
@@ -153,8 +191,13 @@ public class EnemyWorker : MonoBehaviour
             ActiveEnemies.Add(this);
         slotAssignmentsDirty = true;
         nextSlotAssignmentTime = 0f;
+        ResetFormationRoute();
+        arrivalTrackedSlot = -1;
+        slotArrivalLatched = false;
         if (focusTransparencyActive)
-            SetVisualDimmed(PlayerWorker.ent == null || PlayerWorker.ent != gameObject);
+            SetVisualDimmed(PlayerWorker.ent == null
+                            || PlayerWorker.ent != gameObject
+                            || !HasReachedAssignedSlot());
     }
 
     private void OnDisable()
@@ -247,13 +290,10 @@ public class EnemyWorker : MonoBehaviour
             if (leftArmIK != null) leftArmIK.weight = 0f;
         }
         // 타이머 초기화(초 단위)
-        cool1Timer = cool1Frames / refFps; // ≈ 1.67s
+        cool1Timer = GetPoseRetargetDelay();
         coolTimer = 0f;
         guardTimer = -1f;
 
-        // 보간 속도 상수(초당)
-        kFast = -refFps * Mathf.Log(0.9f);  // per-frame 0.1과 유사한 반응
-        kSlow = -refFps * Mathf.Log(0.99f); // per-frame 0.01과 유사한 반응
         nav = ResolveRootAgent();
         hitVFX = Resources.Load<GameObject>("Prefab/BrokenEdgeHitVFX");
         shieldVFX = Resources.Load<GameObject>("Prefab/BrokenEdgeGuardVFX");
@@ -287,6 +327,12 @@ public class EnemyWorker : MonoBehaviour
             if (sword == null) sword = psword;
             swordHitbox = SwordHitbox.Configure(weaponTarget.gameObject, this);
         }
+        Transform slashSword = sword != null ? sword : psword;
+        if (slashSword != null)
+            Swordplay.Visuals.SwordSlashVfxSynchronizer.Configure(
+                slashSword, anim, swordSlashTravelInBladeLengths,
+                swordSlashBladeWidth, swordSlashIntensity, swordSlashTextureFlow,
+                swordSlashUseWeaponEffectColor, swordSlashColor, swordSlashMaterialOverride);
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
         rb = GetComponent<RigBuilder>();
@@ -400,10 +446,24 @@ public class EnemyWorker : MonoBehaviour
 
         UpdateNavigation(dt);
 
+        // The focused enemy only becomes fully opaque after actually reaching its assigned
+        // formation position. If it is displaced again, dim it until the slot is recovered.
+        if (focusTransparencyActive)
+        {
+            bool reactionLocked = IsCombatReactionLocked();
+            bool shouldDim = PlayerWorker.ent == null
+                             || PlayerWorker.ent != gameObject
+                             || !HasReachedAssignedSlot()
+                             || reactionLocked;
+            SetVisualDimmed(shouldDim);
+        }
+
         if (playerWorker == null && PlayerWorker.player != null)
             playerWorker = PlayerWorker.player.GetComponent<PlayerWorker>();
         bool poseLockedByPlayerSlow = playerWorker != null
                                       && playerWorker.IsHoldingAttackSlowOn(this);
+        bool playerLocksActionStart = playerWorker != null
+                                      && playerWorker.LocksEnemyActionStart;
 
         // Pause both interpolation and target rerolls while this enemy is the target of the
         // player's attack slowdown. Keeping rtx/rty intact lets the old motion resume cleanly.
@@ -414,10 +474,8 @@ public class EnemyWorker : MonoBehaviour
             {
                 cool1Timer = Mathf.Max(0f, cool1Timer - dt);
 
-                // 공격 중 빠르게, 그 외에는 느리게
                 bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
-                float k = inAttack ? kFast : kSlow;                 // 초당 반응 속도
-                float a = 1f - Mathf.Exp(-k * dt);                  // 프레임 독립계수
+                float a = GetPoseLerpFactor(inAttack, dt);
 
                 tx = Mathf.Lerp(tx, rtx, a);
                 ty = Mathf.Lerp(ty, rty, a);
@@ -425,7 +483,7 @@ public class EnemyWorker : MonoBehaviour
             if (cool1Timer <= 0f)
             {
                 // 주기 리셋
-                cool1Timer = cool1Frames / refFps;
+                cool1Timer = GetPoseRetargetDelay();
                 // 준비 자세와 가드 자세 모두 같은 방식으로 새 목표 방향을 선택한다.
                 rtx = Random.Range(-180f, 180f);
                 rty = Random.Range(-30f, 150f);
@@ -438,44 +496,54 @@ public class EnemyWorker : MonoBehaviour
         if (coolTimer <= 0f
             && guard == 0
             && guardTimer <= 0f
-            && CombatDirectionUtility.IsOutsideCenterAttackSector(new Vector2(tx, ty))
             && health > -1
+            && !playerLocksActionStart
             && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
             coolTimer = -1f;
             int r = Random.Range(0, 100);
+            float currentGuardRate = GetCurrentGuardRate();
 
             bool badState = anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted")
                             || anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded")
                             || health == -1
                             || PlayerWorker.player == null;
 
-            if (r < 100 - guardRate && badState)
+            if (r < 100f - currentGuardRate && badState)
             {
                 r = -1;
-                coolTimer = RandomRangeFramesToSeconds(coolFramesRange); // 100~500 f → s
+                coolTimer = GetActionCooldown();
             }
-            else if (r < 100 - guardRate)
+            else if (r < 100f - currentGuardRate)
             {
                 if (PlayerWorker.ent && PlayerWorker.ent.transform == transform
                     && HasReachedAssignedSlot())
                 {
-                    BeginAttack();
+                    if (playerWorker != null && playerWorker.CanFocusedEnemyAttack(this))
+                    {
+                        BeginAttack();
 
-                    // 반대 방향으로 목표 갱신
-                    cool1Timer = cool1Frames / refFps;
-                    rtx = Mathf.Clamp(-tx, -180f, 180f);
-                    rty = Mathf.Clamp(-ty, -30f, 150f);
+                        // 반대 방향으로 목표 갱신
+                        cool1Timer = GetPoseRetargetDelay();
+                        rtx = Mathf.Clamp(-tx, -180f, 180f);
+                        rty = Mathf.Clamp(-ty, -30f, 150f);
+                    }
+                    else
+                    {
+                        // Target handoff is still rotating/settling. Retry soon instead
+                        // of consuming a full random attack cooldown.
+                        coolTimer = 0.12f;
+                    }
 
                 }
                 else
                 {
-                    coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
+                    coolTimer = GetActionCooldown();
                 }
             }
             else // 가드 선택
             {
-                guardTimer = RandomRangeFramesToSeconds(guardFramesRange);
+                guardTimer = GetGuardDuration();
             }
         }
 
@@ -484,13 +552,14 @@ public class EnemyWorker : MonoBehaviour
         {
             if (swing == 1)
             {
-                coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
+                coolTimer = GetActionCooldown();
                 swing = 0;
             }
         }
 
         // -------- 가드 타이머 --------
-        if (guardTimer > 0f && health > -1)
+        if (guardTimer > 0f && health > -1
+                && (guard != 0 || !playerLocksActionStart))
         {
             guardTimer = Mathf.Max(0f, guardTimer - dt);
 
@@ -502,8 +571,8 @@ public class EnemyWorker : MonoBehaviour
                 rty = Mathf.Clamp(rty, -30f, 150f);
 
                 guard = 1;
-                anim.CrossFade("BlockIdle", 0f, 0);
-                anim.CrossFade("BlockIdle", 0f, 1);
+                anim.ResetTrigger("ExitBlock");
+                anim.SetTrigger("EnterBlock");
 
                 // 가드 포즈 즉시 보정(프레임 독립)
                 //sword.localPosition = new Vector3(sword.localPosition.x + 1f, sword.localPosition.y - 2f, sword.localPosition.z);
@@ -513,11 +582,11 @@ public class EnemyWorker : MonoBehaviour
 
         if (guardTimer == 0f)
         {
-            coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
+            coolTimer = GetActionCooldown();
             guardTimer = -1f;
             guard = 0;
-            anim.CrossFade("Idle", 0f, 0);
-            anim.CrossFade("Idle", 0f, 1);
+            anim.ResetTrigger("EnterBlock");
+            anim.SetTrigger("ExitBlock");
             //sword.localPosition = swordOffset;
         }
 
@@ -565,10 +634,13 @@ public class EnemyWorker : MonoBehaviour
 
     private void BeginAttack()
     {
-        if (!CombatDirectionUtility.IsOutsideCenterAttackSector(new Vector2(tx, ty)))
-            return;
-
-        attackDirection = new Vector2(tx, ty);
+        Vector2 snappedAttack = CombatDirectionUtility.GetNearestNonCenterAttackAnchor(
+            new Vector2(tx, ty));
+        tx = rtx = snappedAttack.x;
+        ty = rty = snappedAttack.y;
+        anim.SetFloat("tx", tx);
+        anim.SetFloat("ty", ty);
+        attackDirection = snappedAttack;
         attackSequence++;
         attackSlowTriggered = false;
         restoringAttackSpeed = false;
@@ -637,6 +709,7 @@ public class EnemyWorker : MonoBehaviour
         }
     }
 
+
     private void SetSwordDamageTriggersEnabled(bool value)
     {
         // psword is a legacy static shared by every enemy, so it must not be used here:
@@ -652,6 +725,50 @@ public class EnemyWorker : MonoBehaviour
         int f = Random.Range(framesRange.x, framesRange.y + 1);
         return f / refFps;
     }
+
+    private float CurrentTempoMultiplier => ArenaGameDirector.Instance != null
+        ? ArenaGameDirector.Instance.EnemyTempoMultiplier
+        : 1f;
+
+    private int CurrentDefeatCount => ArenaGameDirector.Instance != null
+        ? ArenaGameDirector.Instance.DefeatedEnemiesThisRun
+        : 0;
+
+    private float GetCurrentGuardRate()
+    {
+        float lower = Mathf.Min(startingGuardRate, minimumGuardRate);
+        float upper = Mathf.Max(startingGuardRate, minimumGuardRate);
+        float scaled = startingGuardRate
+                       * Mathf.Pow(guardRateMultiplierPerDefeat, CurrentDefeatCount);
+        return Mathf.Clamp(scaled, lower, upper);
+    }
+
+    private float GetPoseLerpFactor(bool inAttack, float deltaTime)
+    {
+        float lower = Mathf.Clamp(minimumPoseLerp, 0.001f, 0.5f);
+        float upper = Mathf.Clamp(maximumPoseLerp, lower, 0.5f);
+        float baseLerp = inAttack ? baseAttackPoseLerp : basePoseLerp;
+        float scaledReferenceLerp = baseLerp
+            * Mathf.Pow(poseLerpMultiplierPerDefeat, CurrentDefeatCount);
+        float referenceLerp = Mathf.Clamp(scaledReferenceLerp, lower, upper);
+
+        // Inspector values describe the familiar per-frame Lerp percentage at Ref FPS.
+        // Convert it to a frame-rate-independent factor while preserving the 0.5 cap.
+        float referenceFrames = Mathf.Max(0f, deltaTime) * Mathf.Max(1f, refFps);
+        return 1f - Mathf.Pow(1f - referenceLerp, referenceFrames);
+    }
+
+    private float GetPoseRetargetDelay()
+        => Mathf.Max(minimumActionCooldown,
+            cool1Frames / refFps * CurrentTempoMultiplier);
+
+    private float GetActionCooldown()
+        => Mathf.Max(minimumActionCooldown,
+            RandomRangeFramesToSeconds(coolFramesRange) * CurrentTempoMultiplier);
+
+    private float GetGuardDuration()
+        => Mathf.Max(minimumGuardDuration,
+            RandomRangeFramesToSeconds(guardFramesRange) * CurrentTempoMultiplier);
 
     private int GetAssignedSlot()
     {
@@ -671,14 +788,55 @@ public class EnemyWorker : MonoBehaviour
     {
         int slot = GetAssignedSlot();
         if (slot < 0 || PlayerWorker.player == null)
+        {
+            arrivalTrackedSlot = -1;
+            slotArrivalLatched = false;
             return false;
+        }
 
-        Vector3 offset = CalculateSlotPosition(slot) - transform.position;
+        if (arrivalTrackedSlot != slot)
+        {
+            arrivalTrackedSlot = slot;
+            slotArrivalLatched = false;
+        }
+
+        // The requested formation point can be moved by NavMesh.SamplePosition before it
+        // becomes the agent's real path endpoint. Compare against that accepted endpoint;
+        // comparing against the unsampled point can leave an agent permanently "not
+        // arrived" even after it has completed its valid path.
+        Vector3 arrivalPosition = hasReachableSlotPosition && reachableSlotIndex == slot
+            ? reachableSlotPosition
+            : CalculateSlotPosition(slot);
+        Vector3 offset = arrivalPosition - transform.position;
         offset.y = 0f;
         float stoppingDistance = nav != null && nav.enabled
             ? nav.stoppingDistance
             : 0.5f;
-        return offset.sqrMagnitude <= Mathf.Pow(stoppingDistance + 0.35f, 2f);
+        float enterTolerance = Mathf.Max(
+            slotArrivalTolerance, formationWaypointTolerance, stoppingDistance + 0.35f);
+        float distance = offset.magnitude;
+
+        bool finalRouteStage = formationRouteStage == FormationRouteStage.EnterAssignedSlot
+                               || formationRouteStage == FormationRouteStage.Arrived;
+        bool navCompletedFinalLeg = finalRouteStage
+                                    && nav != null && nav.enabled && nav.isOnNavMesh
+                                    && !nav.pathPending
+                                    && (!nav.hasPath
+                                        || nav.remainingDistance <= stoppingDistance + 0.2f)
+                                    && nav.velocity.sqrMagnitude <= 0.04f;
+        // SamplePosition can move the usable endpoint away from the mathematical slot.
+        // A stopped, complete final leg is valid within the same radius used to sample it.
+        float sampledEndpointTolerance = Mathf.Max(enterTolerance,
+            Mathf.Clamp(slotSampleRadius, 0.5f, 1.25f) + stoppingDistance);
+        if (distance <= enterTolerance
+                || (navCompletedFinalLeg && distance <= sampledEndpointTolerance))
+            slotArrivalLatched = true;
+
+        float leaveTolerance = Mathf.Max(enterTolerance, slotDepartureTolerance);
+        if (slotArrivalLatched && distance > leaveTolerance)
+            slotArrivalLatched = false;
+
+        return slotArrivalLatched;
     }
 
     public static void SetFocusedEnemy(GameObject focusedEnemy)
@@ -687,7 +845,10 @@ public class EnemyWorker : MonoBehaviour
         foreach (EnemyWorker enemy in ActiveEnemies.ToArray())
         {
             if (enemy == null) continue;
-            enemy.SetVisualDimmed(focusTransparencyActive && enemy.gameObject != focusedEnemy);
+            enemy.SetVisualDimmed(focusTransparencyActive
+                                  && (enemy.gameObject != focusedEnemy
+                                      || !enemy.HasReachedAssignedSlot()
+                                      || enemy.IsCombatReactionLocked()));
         }
     }
 
@@ -702,13 +863,40 @@ public class EnemyWorker : MonoBehaviour
     {
         if (!value)
         {
-            RestoreOriginalVisualMaterials();
+            // Always repair the real renderer state. Rapid pool/focus changes can happen in
+            // one frame; relying only on the cached bool can otherwise leave cloned
+            // transparent materials assigned after this enemy becomes the focus.
+            if (visualsDimmed || fadedRenderers.Count > 0)
+                RestoreOriginalVisualMaterials();
             return;
         }
+
+        if (visualsDimmed)
+            return;
 
         visualsDimmed = true;
         fadedRendererRefreshTimer = 0.5f;
         FadeNewChildRenderers();
+    }
+
+    private bool IsCombatReactionLocked()
+    {
+        if (physicsReaction || returnToIdleAfterHurt || anim == null)
+            return physicsReaction || returnToIdleAfterHurt;
+
+        for (int layer = 0; layer < anim.layerCount; layer++)
+        {
+            AnimatorStateInfo current = anim.GetCurrentAnimatorStateInfo(layer);
+            if (current.IsName("Hurted") || current.IsName("Guarded"))
+                return true;
+            if (anim.IsInTransition(layer))
+            {
+                AnimatorStateInfo next = anim.GetNextAnimatorStateInfo(layer);
+                if (next.IsName("Hurted") || next.IsName("Guarded"))
+                    return true;
+            }
+        }
+        return false;
     }
 
     private void FadeNewChildRenderers()
@@ -817,8 +1005,7 @@ public class EnemyWorker : MonoBehaviour
         double[,] cost = new double[n + 1, m + 1];
         for (int i = 1; i <= n; i++)
             for (int j = 1; j <= m; j++)
-                cost[i, j] = (unassigned[i - 1].CalculateSlotPosition(freeSlots[j - 1])
-                    - unassigned[i - 1].transform.position).sqrMagnitude;
+                cost[i, j] = unassigned[i - 1].CalculateFormationRouteCost(freeSlots[j - 1]);
         double[] u = new double[n + 1], v = new double[m + 1];
         int[] p = new int[m + 1], way = new int[m + 1];
         for (int i = 1; i <= n; i++)
@@ -913,6 +1100,118 @@ public class EnemyWorker : MonoBehaviour
         return PlayerWorker.player.position + radial * engagementRadius;
     }
 
+    private double CalculateFormationRouteCost(int slot)
+    {
+        Vector3 center = PlayerWorker.player.position;
+        Vector3 fromCenter = transform.position - center;
+        fromCenter.y = 0f;
+        float radius = Mathf.Max(0.05f, fromCenter.magnitude);
+        float outerRadius = engagementRadius + formationRouteClearance;
+        float currentAngle = Mathf.Repeat(
+            Mathf.Atan2(fromCenter.x, fromCenter.z) * Mathf.Rad2Deg, 360f);
+        float targetAngle = slot * (360f / FormationSlotCount);
+        float shortestArcRadians = Mathf.Abs(Mathf.DeltaAngle(currentAngle, targetAngle)) * Mathf.Deg2Rad;
+        float radialToOuter = Mathf.Abs(radius - outerRadius);
+        float orbitDistance = shortestArcRadians * outerRadius;
+        float finalEntry = Mathf.Abs(outerRadius - engagementRadius);
+        float total = radialToOuter + orbitDistance + finalEntry;
+        return total * total;
+    }
+
+    private void ResetFormationRoute()
+    {
+        formationRouteStage = FormationRouteStage.ExitToOuterRing;
+        routedSlot = -1;
+        formationOrbitDirection = 1;
+        hasRequestedSlot = false;
+        hasReachableSlotPosition = false;
+        reachableSlotIndex = -1;
+        destinationRefreshTimer = 0f;
+    }
+
+    private Vector3 CalculateFormationRouteDestination(int slot, out bool finalLeg)
+    {
+        finalLeg = false;
+        Vector3 center = PlayerWorker.player.position;
+        Vector3 finalSlot = CalculateSlotPosition(slot);
+        float baseOuterRadius = engagementRadius + formationRouteClearance;
+
+        if (routedSlot != slot)
+        {
+            routedSlot = slot;
+            formationRouteStage = FormationRouteStage.ExitToOuterRing;
+            hasRequestedSlot = false;
+            hasReachableSlotPosition = false;
+            reachableSlotIndex = -1;
+
+            Vector3 initialOffset = transform.position - center;
+            initialOffset.y = 0f;
+            Vector3 initialRadial = initialOffset.sqrMagnitude > 0.0025f
+                ? initialOffset.normalized
+                : (finalSlot - center).normalized;
+            float initialAngle = Mathf.Repeat(
+                Mathf.Atan2(initialRadial.x, initialRadial.z) * Mathf.Rad2Deg, 360f);
+            // Positive Y rotation is the clockwise direction in this formation's
+            // angle convention. Keep the chosen shortest direction for the whole route.
+            formationOrbitDirection = Mathf.DeltaAngle(initialAngle,
+                slot * (360f / FormationSlotCount)) >= 0f ? 1 : -1;
+        }
+
+        // Opposite traffic directions use nearby concentric transit lanes, preventing
+        // head-on NavMesh avoidance fights without creating another formation ring.
+        float outerRadius = baseOuterRadius
+            + (formationOrbitDirection > 0 ? formationOppositeLaneSeparation : 0f);
+
+        Vector3 fromCenter = transform.position - center;
+        fromCenter.y = 0f;
+        float radius = fromCenter.magnitude;
+        Vector3 currentRadial = radius > 0.05f
+            ? fromCenter / radius
+            : (finalSlot - center).normalized;
+
+        // First leave the protected combat circle along the character's own radial.
+        // This can never cut through the player or another occupied slot.
+        if (formationRouteStage == FormationRouteStage.ExitToOuterRing)
+        {
+            Vector3 outerEntry = center + currentRadial * outerRadius;
+            if (radius < outerRadius - formationWaypointTolerance
+                    && Vector3.Distance(transform.position, outerEntry) > formationWaypointTolerance)
+                return outerEntry;
+            formationRouteStage = FormationRouteStage.OrbitOuterRing;
+        }
+
+        float targetAngle = slot * (360f / FormationSlotCount);
+        if (formationRouteStage == FormationRouteStage.OrbitOuterRing)
+        {
+            float currentAngle = Mathf.Repeat(
+                Mathf.Atan2(currentRadial.x, currentRadial.z) * Mathf.Rad2Deg, 360f);
+            float angularTolerance = Mathf.Max(2f,
+                formationWaypointTolerance / Mathf.Max(outerRadius, 0.1f) * Mathf.Rad2Deg);
+            if (Mathf.Abs(Mathf.DeltaAngle(currentAngle, targetAngle)) <= angularTolerance)
+            {
+                formationRouteStage = FormationRouteStage.EnterAssignedSlot;
+            }
+            else
+            {
+                float remaining = formationOrbitDirection > 0
+                    ? Mathf.Repeat(targetAngle - currentAngle, 360f)
+                    : Mathf.Repeat(currentAngle - targetAngle, 360f);
+                float nextAngle = currentAngle
+                    + formationOrbitDirection * Mathf.Min(formationArcStepDegrees, remaining);
+                Vector3 nextRadial = Quaternion.Euler(0f, nextAngle, 0f) * Vector3.forward;
+                return center + nextRadial * outerRadius;
+            }
+        }
+
+        finalLeg = true;
+        float finalDistance = Vector3.Distance(transform.position, finalSlot);
+        if (finalDistance <= formationWaypointTolerance)
+            formationRouteStage = FormationRouteStage.Arrived;
+        else if (formationRouteStage == FormationRouteStage.Arrived)
+            formationRouteStage = FormationRouteStage.EnterAssignedSlot;
+        return finalSlot;
+    }
+
     private void UpdateNavigation(float deltaTime)
     {
         bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
@@ -938,17 +1237,18 @@ public class EnemyWorker : MonoBehaviour
             return;
         }
         Vector3 requestedSlot = CalculateSlotPosition(assignedSlot);
+        Vector3 routeDestination = CalculateFormationRouteDestination(assignedSlot, out bool finalRouteLeg);
         if (!nav.isOnNavMesh)
         {
-            MoveTowardWithoutNavMesh(requestedSlot, deltaTime);
+            MoveTowardWithoutNavMesh(routeDestination, deltaTime);
             return;
         }
 
         // Reaching a slot is not a permanent stop. The formation follows the player's
         // position, so any meaningful slot displacement immediately invalidates the stop.
-        if (!hasRequestedSlot || (requestedSlot - lastRequestedSlot).sqrMagnitude > 0.04f)
+        if (!hasRequestedSlot || (routeDestination - lastRequestedSlot).sqrMagnitude > 0.04f)
         {
-            lastRequestedSlot = requestedSlot;
+            lastRequestedSlot = routeDestination;
             hasRequestedSlot = true;
             destinationRefreshTimer = 0f;
         }
@@ -969,8 +1269,8 @@ public class EnemyWorker : MonoBehaviour
         {
             destinationRefreshTimer = destinationRefreshInterval;
             useDirectPursuit = false;
-            bool pathAssigned = TrySetReachableSlotDestination(assignedSlot, false)
-                || TrySetReachableSlotDestination(assignedSlot, true);
+            bool pathAssigned = TrySetReachableFormationDestination(routeDestination, finalRouteLeg, false)
+                || TrySetReachableFormationDestination(routeDestination, finalRouteLeg, true);
             if (!pathAssigned)
             {
                 // Never drive directly through level geometry when a path is unavailable.
@@ -1034,6 +1334,7 @@ public class EnemyWorker : MonoBehaviour
         navStuckTimer = 0f;
         nav.ResetPath();
         destinationRefreshTimer = 0f;
+        ResetFormationRoute();
     }
 
     private void MoveTowardWithoutNavMesh(Vector3 target, float deltaTime)
@@ -1070,10 +1371,10 @@ public class EnemyWorker : MonoBehaviour
             nav.nextPosition = transform.position;
     }
 
-    private bool TrySetReachableSlotDestination(int slot, bool allowPartial)
+    private bool TrySetReachableFormationDestination(
+        Vector3 requestedPosition, bool finalRouteLeg, bool allowPartial)
     {
         Vector3 playerPosition = PlayerWorker.player.position;
-        Vector3 requestedPosition = CalculateSlotPosition(slot);
         float minimumRadius = Mathf.Max(2.2f, engagementRadius * 0.8f);
         float sampleRadius = Mathf.Clamp(slotSampleRadius, 0.5f, 1.25f);
         if (!NavMesh.SamplePosition(requestedPosition, out NavMeshHit hit, sampleRadius, nav.areaMask))
@@ -1090,14 +1391,58 @@ public class EnemyWorker : MonoBehaviour
             return false;
 
         Vector3[] corners = slotPathProbe.corners;
-        if (corners == null || corners.Length < 2)
+        // A complete path whose start is already at its destination legitimately contains
+        // one corner. Rejecting it prevents an already-positioned enemy from ever recording
+        // the sampled slot endpoint.
+        if (corners == null || corners.Length < 1)
             return false;
         Vector3 pathEndFromPlayer = corners[corners.Length - 1] - playerPosition;
         pathEndFromPlayer.y = 0f;
         if (pathEndFromPlayer.magnitude < minimumRadius)
             return false;
 
-        return nav.SetPath(slotPathProbe);
+        // NavMesh may replace two safe outer-ring waypoints with a straight chord.
+        // Reject any non-final segment that cuts into the occupied combat circle.
+        if (!finalRouteLeg)
+        {
+            float protectedRadius = engagementRadius + formationRouteClearance * 0.35f;
+            Vector3 startFromPlayer = corners[0] - playerPosition;
+            startFromPlayer.y = 0f;
+            // An enemy displaced inside the circle must be allowed to travel radially
+            // outward first. Once outside, every subsequent orbit segment is guarded.
+            if (startFromPlayer.magnitude >= protectedRadius - formationWaypointTolerance)
+                for (int i = 1; i < corners.Length; i++)
+                    if (DistanceFromPointToSegmentXZ(playerPosition, corners[i - 1], corners[i])
+                        < protectedRadius)
+                        return false;
+        }
+
+        bool pathAccepted = nav.SetPath(slotPathProbe);
+        if (pathAccepted && finalRouteLeg
+                && slotPathProbe.status == NavMeshPathStatus.PathComplete)
+        {
+            reachableSlotPosition = corners[corners.Length - 1];
+            reachableSlotIndex = routedSlot;
+            hasReachableSlotPosition = true;
+        }
+        else if (finalRouteLeg && slotPathProbe.status != NavMeshPathStatus.PathComplete)
+        {
+            hasReachableSlotPosition = false;
+            reachableSlotIndex = -1;
+        }
+        return pathAccepted;
+    }
+
+    private static float DistanceFromPointToSegmentXZ(Vector3 point, Vector3 start, Vector3 end)
+    {
+        Vector2 p = new(point.x, point.z);
+        Vector2 a = new(start.x, start.z);
+        Vector2 b = new(end.x, end.z);
+        Vector2 segment = b - a;
+        float denominator = segment.sqrMagnitude;
+        if (denominator <= 0.000001f) return Vector2.Distance(p, a);
+        float t = Mathf.Clamp01(Vector2.Dot(p - a, segment) / denominator);
+        return Vector2.Distance(p, a + segment * t);
     }
 
     public void ApplyCombatKnockback(Vector3 direction)
@@ -1400,8 +1745,7 @@ public class EnemyWorker : MonoBehaviour
                 if (reboundDirection.sqrMagnitude < 0.0001f)
                     reboundDirection = -transform.forward;
                 attacker.ApplyCombatKnockback(reboundDirection);
-                if (!playerAnim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
-                    playerAnim.CrossFade("Guarded", 0f, 0);
+                attacker.EnterGuardBrokenState();
             }
         }
     }
@@ -1429,7 +1773,7 @@ public class EnemyWorker : MonoBehaviour
         restoringAttackSpeed = false;
         attackSlowTimer = 0f;
         SetSwordDamageTriggersEnabled(true);
-        coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
+        coolTimer = GetActionCooldown();
         guardTimer = -1f;
         attackSequence = 0;
         resolvedPlayerAttackSequence = -1;
@@ -1453,6 +1797,9 @@ public class EnemyWorker : MonoBehaviour
             }
         }
         destinationRefreshTimer = 0f;
+        ResetFormationRoute();
+        arrivalTrackedSlot = -1;
+        slotArrivalLatched = false;
         if (!ActiveEnemies.Contains(this)) ActiveEnemies.Add(this);
     }
 

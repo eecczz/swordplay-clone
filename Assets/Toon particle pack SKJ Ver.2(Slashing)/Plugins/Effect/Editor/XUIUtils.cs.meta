@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 9f70f8a0b86893f47a03f4dff2c2549b
+timeCreated: 1470622978
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 82685
+  packageName: Toon particle pack SKJ Ver.2(Slashing)
+  packageVersion: 1.3
+  assetPath: Assets/Toon particle pack SKJ Ver.2(Slashing)/Plugins/Effect/Editor/XUIUtils.cs
+  uploadId: 209784

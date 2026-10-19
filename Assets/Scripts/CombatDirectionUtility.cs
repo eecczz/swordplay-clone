@@ -69,6 +69,26 @@ public static class CombatDirectionUtility
         return (AttackSector)closest;
     }
 
+    public static Vector2 GetNearestNonCenterAttackAnchor(Vector2 direction)
+    {
+        int closest = 0;
+        float closestDistance = float.PositiveInfinity;
+        for (int i = 0; i < AttackAnchors.Length; i++)
+        {
+            if ((AttackSector)i == AttackSector.Bottom)
+                continue;
+
+            Vector2 delta = direction - AttackAnchors[i];
+            float distance = delta.x * delta.x / (180f * 180f)
+                           + delta.y * delta.y / (75f * 75f);
+            if (distance >= closestDistance)
+                continue;
+            closestDistance = distance;
+            closest = i;
+        }
+        return AttackAnchors[closest];
+    }
+
     /// <summary>
     /// The attack blend tree is not a square coordinate system, so raw Vector2 distance
     /// cannot identify its centre consistently. Reuse the aspect-corrected eight-sector

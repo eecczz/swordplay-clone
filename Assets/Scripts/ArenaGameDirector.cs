@@ -17,6 +17,10 @@ public sealed class ArenaGameDirector : MonoBehaviour
     [SerializeField, Min(0.05f)] private float entranceInterval = 0.32f;
     [SerializeField, Min(0.2f)] private float recycleDelay = 1.25f;
 
+    [Header("Difficulty ramp")]
+    [Tooltip("Enemy action durations are multiplied by this percentage after each defeat.")]
+    [SerializeField, Range(0.5f, 0.99f)] private float enemyTempoMultiplierPerDefeat = 0.94f;
+
     [Header("Presentation")]
     [SerializeField] private Camera menuCamera;
     [SerializeField] private Camera gameplayCamera;
@@ -37,7 +41,12 @@ public sealed class ArenaGameDirector : MonoBehaviour
     private readonly Dictionary<EnemyWorker, Pose> authoredSpawnPoses = new();
     private int gold;
     private int diamonds;
+    private int defeatedEnemiesThisRun;
     private bool gameRunning;
+
+    public float EnemyTempoMultiplier => Mathf.Pow(
+        enemyTempoMultiplierPerDefeat, defeatedEnemiesThisRun);
+    public int DefeatedEnemiesThisRun => defeatedEnemiesThisRun;
 
     private void Awake()
     {
@@ -62,6 +71,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
     {
         if (gameRunning) return;
         gameRunning = true;
+        defeatedEnemiesThisRun = 0;
         mainPanel?.SetActive(false);
         settingsPanel?.SetActive(false);
         shopPanel?.SetActive(false);
@@ -152,6 +162,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
     public void NotifyEnemyDefeated(EnemyWorker enemy, int releasedSlot)
     {
         if (enemy == null) return;
+        defeatedEnemiesThisRun++;
         EnemyWorker adjacentEnemy = EnemyWorker.FindLivingEnemyAdjacentToSlot(releasedSlot, enemy);
         player?.SelectTargetAfterEnemyDefeat(enemy.gameObject,
             adjacentEnemy != null ? adjacentEnemy.gameObject : null);

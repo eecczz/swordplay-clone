@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Animations.Rigging;
+using UnityEngine.Rendering;
 using FIMSpace.FProceduralAnimation;
 
 [RequireComponent(typeof(CharacterController))]
@@ -79,10 +80,27 @@ public class PlayerWorker : MonoBehaviour
     private int resolvedIncomingAttackSequence = -1;
     private bool hurtUpperLayerSuppressed;
     private bool hurtStateEntered;
+    private float hurtStateEntryGrace;
     private float hurtUpperLayerWeight = 1f;
+    private sealed class ReactionFadedRendererState
+    {
+        public Material[] OriginalMaterials;
+        public Material[] RuntimeMaterials;
+    }
+    private readonly Dictionary<Renderer, ReactionFadedRendererState> reactionFadedRenderers = new();
+    private bool reactionVisualsDimmed;
     [Header("Attack hit detection")]
     [SerializeField, Range(0f, 1f)] private float attackHitStart = 0f;
     [SerializeField, Range(0f, 1.2f)] private float attackHitEnd = 1.05f;
+    [Header("Sword slash VFX")]
+    [Tooltip("Length of the motion-synced slash ribbon, measured in blade lengths.")]
+    [SerializeField, Min(0.25f)] private float swordSlashTravelInBladeLengths = 2.25f;
+    [SerializeField, Range(0.25f, 1.5f)] private float swordSlashBladeWidth = 1f;
+    [SerializeField, Range(0.1f, 2f)] private float swordSlashIntensity = 1.1f;
+    [SerializeField, Range(0f, 1f)] private float swordSlashTextureFlow = 0.16f;
+    [SerializeField] private bool swordSlashUseWeaponEffectColor = true;
+    [SerializeField, ColorUsage(true, true)] private Color swordSlashColor = new(1.2f, 0.35f, 0.08f, 0.9f);
+    [SerializeField] private Material swordSlashMaterialOverride;
     [Header("Movement collision")]
     [SerializeField] private float maxStepHeight = 0.45f;
     [SerializeField, Range(1f, 80f)] private float maxSlopeAngle = 55f;
@@ -91,12 +109,19 @@ public class PlayerWorker : MonoBehaviour
     [SerializeField, Min(1f)] private float airAcceleration = 8f;
     [Header("Facing and knockback")]
     [SerializeField, Min(0.1f)] private float facingLerpSpeed = 10f;
+    [Header("Target handoff safety")]
+    [SerializeField, Min(0f)] private float targetSwitchAttackGrace = 0.65f;
+    [SerializeField, Range(2f, 35f)] private float targetFacingReadyAngle = 12f;
+    [SerializeField, Min(0f)] private float targetFacingReadyHold = 0.18f;
     [SerializeField, Min(0.5f)] private float knockbackDistance = 5f;
     [SerializeField, Min(0.1f)] private float knockbackSlideDamping = 4.5f;
     [SerializeField, Min(0.01f)] private float knockbackStopSpeed = 0.15f;
     [SerializeField, Min(0.2f)] private float knockbackMaxTime = 3f;
     private Quaternion desiredFacingRotation;
     private bool hasFacingTarget;
+    private float focusedEnemyAttackUnlockTime;
+    private float focusedEnemyFacingStableTime;
+    private GameObject readinessTarget;
     private bool rootPhysicsKnockback;
     private float knockbackTimer;
     private Vector3 knockbackStartPosition;
@@ -197,6 +222,12 @@ public class PlayerWorker : MonoBehaviour
         ConfigurePhysicalRoot();
         if (psword != null)
             swordHitbox = SwordHitbox.Configure(psword.gameObject, this);
+        Transform slashSword = sword != null ? sword : psword;
+        if (slashSword != null)
+            Swordplay.Visuals.SwordSlashVfxSynchronizer.Configure(
+                slashSword, anim, swordSlashTravelInBladeLengths,
+                swordSlashBladeWidth, swordSlashIntensity, swordSlashTextureFlow,
+                swordSlashUseWeaponEffectColor, swordSlashColor, swordSlashMaterialOverride);
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
         rb = rigBuilderOverride != null ? rigBuilderOverride : GetComponent<RigBuilder>();
@@ -298,6 +329,7 @@ public class PlayerWorker : MonoBehaviour
 
         UpdateAttackSlowdown();
         UpdateHurtLayerSuppression();
+        UpdateReactionTransparency();
         movementInput = Vector2.zero;
         UpdateAutomaticNavigation();
         if(swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
@@ -348,6 +380,7 @@ public class PlayerWorker : MonoBehaviour
                 }
             }
         }
+        UpdateFocusedEnemyAttackReadiness();
         bool manualGuard = inputMode == InputMode.PC && Input.GetMouseButton(1);
         if (inputMode == InputMode.PC && telegraphedGuardTimer > 0f
             && (pcPoseInput.sqrMagnitude > 0.0001f || Input.GetMouseButtonDown(1)))
@@ -369,8 +402,8 @@ public class PlayerWorker : MonoBehaviour
             if (guard == 1)
             {
                 guard = 0;
-                anim.CrossFade("Idle", 0f, 0);
-                anim.CrossFade("Idle", 0f, 1);
+                anim.ResetTrigger("EnterBlock");
+                anim.SetTrigger("ExitBlock");
                 //sword.localPosition = swordOffset;//new Vector3(-0.38f, 0.514f, -0.027f);
             }
         }
@@ -379,8 +412,8 @@ public class PlayerWorker : MonoBehaviour
             if (guard == 0)
             {
                 guard = 1;
-                anim.CrossFade("BlockIdle", 0f, 0);
-                anim.CrossFade("BlockIdle", 0f, 1);
+                anim.ResetTrigger("ExitBlock");
+                anim.SetTrigger("EnterBlock");
                 //sword.localPosition = new Vector3(sword.localPosition.x + 1, sword.localPosition.y - 2, sword.localPosition.z);
                 //sword.position += transform.forward;
                 SoundManager.Instance.SFXPlay("Shield");
@@ -536,10 +569,7 @@ public class PlayerWorker : MonoBehaviour
     {
         if (attacker == null || health < 0) return;
 
-        bool attacking = swing != 0
-                         || (anim != null && anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
-                         || (anim != null && anim.IsInTransition(0)
-                             && anim.GetNextAnimatorStateInfo(0).IsName("Attack"));
+        bool attacking = IsPlayerAttackSequenceActive();
         if (attacking)
         {
             // Attacking has priority over the reaction guard in every input mode. Do not
@@ -563,8 +593,8 @@ public class PlayerWorker : MonoBehaviour
         queuedMobileSwing = false;
         swing = 0;
         guard = 1;
-        anim.CrossFade("BlockIdle", 0f, 0);
-        anim.CrossFade("BlockIdle", 0f, 1);
+        anim.ResetTrigger("ExitBlock");
+        anim.SetTrigger("EnterBlock");
     }
 
     private void TryCommitTelegraphedGuard()
@@ -601,6 +631,112 @@ public class PlayerWorker : MonoBehaviour
         telegraphedAttacker = null;
         telegraphedAttackSequence = 0;
         telegraphedGuardAttempted = false;
+    }
+
+    private void UpdateReactionTransparency()
+    {
+        bool shouldDim = rootPhysicsKnockback || hurtUpperLayerSuppressed || IsReactionStateActive();
+        if (!shouldDim)
+        {
+            // Do not trust only the cached bool here. A state interruption (for example
+            // Hurted -> BlockIdle on the same frame as a kill) can leave cloned materials
+            // in the dictionary after the state flag has already changed.
+            if (reactionVisualsDimmed || reactionFadedRenderers.Count > 0)
+                RestoreReactionVisualMaterials();
+            return;
+        }
+
+        if (reactionVisualsDimmed)
+            return;
+
+        reactionVisualsDimmed = true;
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null || reactionFadedRenderers.ContainsKey(renderer))
+                continue;
+
+            Material[] originals = renderer.sharedMaterials;
+            Material[] runtimeMaterials = new Material[originals.Length];
+            for (int i = 0; i < originals.Length; i++)
+            {
+                Material source = originals[i];
+                if (source == null) continue;
+                Material runtime = new Material(source)
+                {
+                    name = source.name + " (Runtime Reaction Transparent)",
+                    hideFlags = HideFlags.HideAndDontSave,
+                    renderQueue = (int)RenderQueue.Transparent
+                };
+                ConfigureReactionTransparentMaterial(runtime);
+                runtimeMaterials[i] = runtime;
+            }
+
+            reactionFadedRenderers.Add(renderer, new ReactionFadedRendererState
+            {
+                OriginalMaterials = originals,
+                RuntimeMaterials = runtimeMaterials
+            });
+            renderer.sharedMaterials = runtimeMaterials;
+        }
+    }
+
+    private bool IsReactionStateActive()
+    {
+        if (anim == null) return false;
+        for (int layer = 0; layer < anim.layerCount; layer++)
+        {
+            AnimatorStateInfo current = anim.GetCurrentAnimatorStateInfo(layer);
+            if (current.IsName("Hurted") || current.IsName("Guarded"))
+                return true;
+            if (anim.IsInTransition(layer))
+            {
+                AnimatorStateInfo next = anim.GetNextAnimatorStateInfo(layer);
+                if (next.IsName("Hurted") || next.IsName("Guarded"))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private static void ConfigureReactionTransparentMaterial(Material material)
+    {
+        string[] colorProperties =
+        {
+            "_BaseColor", "_Color", "_TintColor", "_WarriorTintColor",
+            "_GlowColor", "_CoreColor", "_OutlineColor", "_EmissionColor"
+        };
+        foreach (string property in colorProperties)
+        {
+            if (!material.HasProperty(property)) continue;
+            Color color = material.GetColor(property);
+            color.a *= 128f / 255f;
+            material.SetColor(property, color);
+        }
+
+        if (material.HasProperty("_Surface")) material.SetFloat("_Surface", 1f);
+        if (material.HasProperty("_Blend")) material.SetFloat("_Blend", 0f);
+        if (material.HasProperty("_SrcBlend")) material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+        if (material.HasProperty("_DstBlend")) material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+        if (material.HasProperty("_ZWrite")) material.SetFloat("_ZWrite", 0f);
+        material.SetOverrideTag("RenderType", "Transparent");
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+    }
+
+    private void RestoreReactionVisualMaterials()
+    {
+        foreach (KeyValuePair<Renderer, ReactionFadedRendererState> pair in reactionFadedRenderers)
+        {
+            if (pair.Key != null)
+                pair.Key.sharedMaterials = pair.Value.OriginalMaterials;
+            foreach (Material runtime in pair.Value.RuntimeMaterials)
+            {
+                if (runtime == null) continue;
+                if (Application.isPlaying) Destroy(runtime);
+                else DestroyImmediate(runtime);
+            }
+        }
+        reactionFadedRenderers.Clear();
+        reactionVisualsDimmed = false;
     }
 
     private void BeginAttack()
@@ -730,10 +866,9 @@ public class PlayerWorker : MonoBehaviour
 
     private void EnterHurtState()
     {
-        guard = 0;
+        ClearBlockStateForReaction();
         swing = 0;
         queuedMobileSwing = false;
-        ClearTelegraphedGuard();
         anim.speed = 1f;
 
         // Layer 1 masks and overrides the upper body for sword/block poses. Leaving it at
@@ -745,6 +880,7 @@ public class PlayerWorker : MonoBehaviour
             hurtUpperLayerSuppressed = true;
         }
         hurtStateEntered = false;
+        hurtStateEntryGrace = 0.35f;
         anim.CrossFade("Hurted", 0f, 0);
     }
 
@@ -761,21 +897,71 @@ public class PlayerWorker : MonoBehaviour
         if (!hurtStateEntered)
         {
             if (currentIsHurted || nextIsHurted)
+            {
                 hurtStateEntered = true;
+                return;
+            }
+
+            // A guard is allowed during the attack-disabled window. If its transition
+            // wins before Animator evaluates CrossFade(Hurted), the old code waited for a
+            // Hurted state that could never arrive and kept the player translucent forever.
+            hurtStateEntryGrace -= Time.unscaledDeltaTime;
+            if (hurtStateEntryGrace > 0f)
+                return;
+
+            FinishHurtLayerSuppression(true);
             return;
         }
 
         if (nextIsHurted || (currentIsHurted && current.normalizedTime < 1f)) return;
 
-        guard = 0;
+        FinishHurtLayerSuppression(true);
+    }
+
+    private void FinishHurtLayerSuppression(bool returnToIdle)
+    {
+        ClearBlockStateForReaction();
         swing = 0;
-        anim.CrossFade("Idle", 0f, 0);
-        if (anim.layerCount > 1)
-            anim.CrossFade("Idle", 0f, 1);
+        if (returnToIdle)
+        {
+            anim.CrossFade("Idle", 0f, 0);
+            if (anim.layerCount > 1)
+                anim.CrossFade("Idle", 0f, 1);
+        }
         if (anim.layerCount > 1)
             anim.SetLayerWeight(1, hurtUpperLayerWeight);
         hurtUpperLayerSuppressed = false;
         hurtStateEntered = false;
+        hurtStateEntryGrace = 0f;
+
+        // Restore immediately instead of waiting for the next Update. This also covers a
+        // simultaneous kill/hit where another combat callback changes Animator state later
+        // in the same frame.
+        if (!rootPhysicsKnockback && !IsReactionStateActive())
+            RestoreReactionVisualMaterials();
+    }
+
+    private void ClearBlockStateForReaction()
+    {
+        guard = 0;
+        ClearTelegraphedGuard();
+        if (anim == null) return;
+        // Clear both competing requests. Setting ExitBlock here can itself remain queued
+        // while Hurted wins, then fire much later, so reaction states own the transition
+        // directly and leave no block trigger pending.
+        anim.ResetTrigger("EnterBlock");
+        anim.ResetTrigger("ExitBlock");
+    }
+
+    public void EnterGuardBrokenState()
+    {
+        if (health < 0 || anim == null) return;
+        ClearBlockStateForReaction();
+        swing = 0;
+        queuedMobileSwing = false;
+        anim.speed = 1f;
+        if (!anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded"))
+            anim.CrossFade("Guarded", 0f, 0);
     }
 
     private void FixedUpdate()
@@ -1058,8 +1244,15 @@ public class PlayerWorker : MonoBehaviour
 
     private void AssignCombatTarget(GameObject target)
     {
+        bool targetChanged = readinessTarget != target;
+        readinessTarget = target;
         ent = target;
         EnemyWorker.SetFocusedEnemy(target);
+        if (targetChanged)
+        {
+            focusedEnemyAttackUnlockTime = Time.unscaledTime + targetSwitchAttackGrace;
+            focusedEnemyFacingStableTime = 0f;
+        }
         if (target == null)
         {
             entAnim = null;
@@ -1074,6 +1267,61 @@ public class PlayerWorker : MonoBehaviour
         entAnim = target.GetComponent<Animator>()
             ?? target.GetComponentInChildren<Animator>(true);
         onTarget = entAnim != null;
+    }
+
+    private void UpdateFocusedEnemyAttackReadiness()
+    {
+        if (ent == null || health < 0)
+        {
+            focusedEnemyFacingStableTime = 0f;
+            return;
+        }
+
+        Vector3 toTarget = ent.transform.position - transform.position;
+        toTarget.y = 0f;
+        if (toTarget.sqrMagnitude <= 0.0001f)
+        {
+            focusedEnemyFacingStableTime = 0f;
+            return;
+        }
+
+        float angle = Vector3.Angle(transform.forward, toTarget.normalized);
+        if (Time.unscaledTime >= focusedEnemyAttackUnlockTime
+                && angle <= targetFacingReadyAngle)
+            focusedEnemyFacingStableTime += Time.unscaledDeltaTime;
+        else
+            focusedEnemyFacingStableTime = 0f;
+    }
+
+    public bool CanFocusedEnemyAttack(EnemyWorker enemy)
+    {
+        if (enemy == null || ent != enemy.gameObject || health < 0)
+            return false;
+        // Once the player owns the current exchange, the focused enemy may continue its
+        // current pose but may not start a competing attack. This prevents a late enemy
+        // telegraph from forcing the slowed player into BlockIdle.
+        if (IsPlayerAttackSequenceActive())
+            return false;
+        if (Time.unscaledTime < focusedEnemyAttackUnlockTime
+                || focusedEnemyFacingStableTime < targetFacingReadyHold)
+            return false;
+        if (anim == null) return false;
+        AnimatorStateInfo state = anim.GetCurrentAnimatorStateInfo(0);
+        return !state.IsName("Hurted") && !state.IsName("Guarded");
+    }
+
+    public bool LocksEnemyActionStart => IsPlayerAttackSequenceActive();
+
+    private bool IsPlayerAttackSequenceActive()
+    {
+        if (attackSlowTriggered || swing != 0)
+            return true;
+        if (anim == null)
+            return false;
+        if (anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+            return true;
+        return anim.IsInTransition(0)
+               && anim.GetNextAnimatorStateInfo(0).IsName("Attack");
     }
 
     public void SelectTargetAfterEnemyDefeat(GameObject defeatedEnemy, GameObject adjacentEnemy)
@@ -1433,8 +1681,17 @@ public class PlayerWorker : MonoBehaviour
         Swordplay.UI.MedievalCursorController.ShowMenuCursor();
     }
 
-    private void OnDisable() => EnemyWorker.RestoreAllVisuals();
-    private void OnApplicationQuit() => EnemyWorker.RestoreAllVisuals();
+    private void OnDisable()
+    {
+        RestoreReactionVisualMaterials();
+        EnemyWorker.RestoreAllVisuals();
+    }
+
+    private void OnApplicationQuit()
+    {
+        RestoreReactionVisualMaterials();
+        EnemyWorker.RestoreAllVisuals();
+    }
 
     private void Dissolve()
     {

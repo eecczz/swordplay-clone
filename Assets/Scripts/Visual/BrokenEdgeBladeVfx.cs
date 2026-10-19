@@ -91,6 +91,9 @@ namespace Swordplay.Visuals
         private bool auraShaderWarningLogged;
         private bool edgeRibbonShaderWarningLogged;
         private bool trailShaderWarningLogged;
+        public Transform BladeStartMarker => bladeStartMarker;
+        public Transform BladeTipMarker => bladeTipMarker;
+        public Color GlowColor => glowColor;
 #if UNITY_EDITOR
         private bool rebuildQueued;
 #endif

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a12d9b8f9ea136e4ebbb8141a81c8482
+timeCreated: 1460012234
+licenseType: Store
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 82685
+  packageName: Toon particle pack SKJ Ver.2(Slashing)
+  packageVersion: 1.3
+  assetPath: Assets/Toon particle pack SKJ Ver.2(Slashing)/Plugins/Effect/Shader/ParticleBlendEffect.shader
+  uploadId: 209784

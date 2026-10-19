@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 4816841813d2b72409fb9b0b86f9ca67
+timeCreated: 1462183804
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 82685
+  packageName: Toon particle pack SKJ Ver.2(Slashing)
+  packageVersion: 1.3
+  assetPath: Assets/Toon particle pack SKJ Ver.2(Slashing)/Plugins/Effect/Editor/EffectToolBar.cs
+  uploadId: 209784
