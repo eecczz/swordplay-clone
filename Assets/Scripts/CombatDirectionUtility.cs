@@ -2,6 +2,8 @@ using UnityEngine;
 
 public static class CombatDirectionUtility
 {
+    private const float MinimumBlockingSwordAngle = 30f;
+
     public static bool IsAttackStateActive(Animator animator, float hitStart, float hitEnd)
     {
         if (animator == null || !animator.isActiveAndEnabled)
@@ -28,15 +30,6 @@ public static class CombatDirectionUtility
         TopRight,
         MiddleLeft,
         MiddleRight,
-        BottomLeft,
-        Bottom,
-        BottomRight
-    }
-
-    public enum GuardSector
-    {
-        TopLeft,
-        TopRight,
         BottomLeft,
         Bottom,
         BottomRight
@@ -76,34 +69,37 @@ public static class CombatDirectionUtility
         return (AttackSector)closest;
     }
 
-    public static GuardSector GetGuardSector(Vector2 direction)
+    /// <summary>
+    /// The attack blend tree is not a square coordinate system, so raw Vector2 distance
+    /// cannot identify its centre consistently. Reuse the aspect-corrected eight-sector
+    /// mapping and reject only the sector whose authored anchor is (0, 0).
+    /// </summary>
+    public static bool IsOutsideCenterAttackSector(Vector2 direction)
     {
-        if (direction.y >= 75f)
-            return direction.x <= 0f ? GuardSector.TopLeft : GuardSector.TopRight;
-
-        if (direction.x <= -90f)
-            return GuardSector.BottomLeft;
-        if (direction.x >= 90f)
-            return GuardSector.BottomRight;
-        return GuardSector.Bottom;
+        return GetAttackSector(direction) != AttackSector.Bottom;
     }
 
-    public static bool CanBlock(Vector2 attackDirection, Vector2 guardDirection)
+    public static bool CanBlock(Transform attackingSword, Transform guardingSword)
     {
-        AttackSector attack = GetAttackSector(attackDirection);
-        GuardSector guard = GetGuardSector(guardDirection);
+        if (attackingSword == null || guardingSword == null)
+            return false;
 
-        return attack switch
-        {
-            AttackSector.TopLeft => guard == GuardSector.TopLeft,
-            AttackSector.Top => guard is GuardSector.TopLeft or GuardSector.TopRight,
-            AttackSector.TopRight => guard == GuardSector.TopRight,
-            AttackSector.MiddleLeft => guard is GuardSector.TopLeft or GuardSector.BottomLeft,
-            AttackSector.MiddleRight => guard is GuardSector.TopRight or GuardSector.BottomRight,
-            AttackSector.BottomLeft => guard == GuardSector.BottomLeft,
-            AttackSector.Bottom => guard == GuardSector.Bottom,
-            AttackSector.BottomRight => guard == GuardSector.BottomRight,
-            _ => false
-        };
+        Camera viewCamera = Camera.main;
+        if (viewCamera == null || !viewCamera.isActiveAndEnabled)
+            return false;
+
+        // Transform the world-space sword axes into camera space and discard depth. This
+        // measures only the angle visible on screen; tilting either sword toward or away
+        // from the camera cannot incorrectly increase the blocking angle.
+        Vector3 attackView = viewCamera.transform.InverseTransformDirection(attackingSword.up);
+        Vector3 guardView = viewCamera.transform.InverseTransformDirection(guardingSword.up);
+        Vector2 attackScreen = new(attackView.x, attackView.y);
+        Vector2 guardScreen = new(guardView.x, guardView.y);
+
+        if (attackScreen.sqrMagnitude < 0.000001f || guardScreen.sqrMagnitude < 0.000001f)
+            return false;
+
+        float visibleAngle = Vector2.Angle(attackScreen, guardScreen);
+        return visibleAngle >= MinimumBlockingSwordAngle;
     }
 }

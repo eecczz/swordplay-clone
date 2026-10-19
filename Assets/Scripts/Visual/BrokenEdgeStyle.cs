@@ -19,6 +19,15 @@ namespace Swordplay.Visuals
     public sealed class BrokenEdgeStyle : MonoBehaviour
     {
         private const int CurrentStyleVersion = 7;
+        private static BrokenEdgeStyle instance;
+        private static readonly Color[] SkyCycleColors =
+        {
+            new(0.96f, 0.78f, 0.24f, 1f), // yellow
+            new(0.30f, 0.78f, 0.38f, 1f), // green
+            new(0.25f, 0.52f, 0.94f, 1f), // blue
+            new(1.00f, 0.43f, 0.15f, 1f), // orange
+            new(0.88f, 0.18f, 0.22f, 1f)  // red
+        };
 
         [Header("Pastel world")]
         [SerializeField] private Color skyAmbient = new(0.76f, 0.84f, 0.68f, 1f);
@@ -42,6 +51,9 @@ namespace Swordplay.Visuals
         [SerializeField] private Material skyMaterial;
         [SerializeField, Min(4f)] private float arenaRadius = 14f;
 
+        [Header("Runtime sky cycle")]
+        [SerializeField, Min(1f)] private float skyColorStepDuration = 6f;
+
         [Header("Original texture simplification")]
         [SerializeField] private bool applyTexturedToonShader = true;
         [SerializeField] private Shader texturedSurfaceShader;
@@ -58,20 +70,26 @@ namespace Swordplay.Visuals
         private Material generatedSkyMaterial;
         private Mesh generatedArenaMesh;
         private VolumeProfile generatedVolumeProfile;
+        private bool skyCycleActive;
+        private float skyCycleStartTime;
+        private Color skyCycleInitialColor;
         private readonly Dictionary<Renderer, Material[]> originalStyledMaterials = new();
         private readonly List<Material> generatedStyledMaterials = new();
+        private readonly List<Camera> runtimeCameras = new();
 #if UNITY_EDITOR
         [System.NonSerialized] private bool validationQueued;
 #endif
 
         private void OnEnable()
         {
+            instance = this;
             UpgradeSerializedSettings();
             ApplyStyle();
         }
 
         private void OnDisable()
         {
+            if (instance == this) instance = null;
             RestoreTexturedMaterials();
             DestroyOwned(generatedEnvironment);
             DestroyOwned(generatedArenaMaterial);
@@ -83,6 +101,40 @@ namespace Swordplay.Visuals
             generatedSkyMaterial = null;
             generatedArenaMesh = null;
             generatedVolumeProfile = null;
+        }
+
+        private void Update()
+        {
+            if (!Application.isPlaying || !skyCycleActive) return;
+            float phase = (Time.time - skyCycleStartTime) / Mathf.Max(1f, skyColorStepDuration);
+            if (phase < 1f)
+            {
+                float initialBlend = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(phase));
+                ApplyRuntimeSkyColor(Color.Lerp(skyCycleInitialColor, SkyCycleColors[0], initialBlend));
+                return;
+            }
+
+            float cyclePhase = phase - 1f;
+            int current = Mathf.FloorToInt(cyclePhase) % SkyCycleColors.Length;
+            int next = (current + 1) % SkyCycleColors.Length;
+            float blend = Mathf.SmoothStep(0f, 1f, cyclePhase - Mathf.Floor(cyclePhase));
+            ApplyRuntimeSkyColor(Color.Lerp(SkyCycleColors[current], SkyCycleColors[next], blend));
+        }
+
+        public static void BeginGlobalSkyCycle()
+        {
+            if (instance == null) return;
+            instance.ConfigureSky();
+            instance.runtimeCameras.Clear();
+            instance.runtimeCameras.AddRange(FindObjectsByType<Camera>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None));
+            Material activeSky = RenderSettings.skybox;
+            instance.skyCycleInitialColor = activeSky != null && activeSky.HasProperty("_HorizonColor")
+                ? activeSky.GetColor("_HorizonColor")
+                : RenderSettings.ambientSkyColor;
+            instance.skyCycleStartTime = Time.time;
+            instance.skyCycleActive = true;
+            instance.ApplyRuntimeSkyColor(instance.skyCycleInitialColor);
         }
 
 #if UNITY_EDITOR
@@ -371,7 +423,21 @@ namespace Swordplay.Visuals
             // from a standalone build because neither the scene nor GraphicsSettings owns it.
             if (skyMaterial != null)
             {
-                RenderSettings.skybox = skyMaterial;
+                if (Application.isPlaying)
+                {
+                    if (generatedSkyMaterial == null || generatedSkyMaterial.shader != skyMaterial.shader)
+                    {
+                        DestroyOwned(generatedSkyMaterial);
+                        generatedSkyMaterial = new Material(skyMaterial)
+                        {
+                            name = skyMaterial.name + " (Runtime)",
+                            hideFlags = HideFlags.HideAndDontSave
+                        };
+                    }
+                    RenderSettings.skybox = generatedSkyMaterial;
+                }
+                else
+                    RenderSettings.skybox = skyMaterial;
                 return;
             }
 
@@ -394,6 +460,29 @@ namespace Swordplay.Visuals
             generatedSkyMaterial.SetColor("_SunColor", new Color(1f, 0.90f, 0.73f, 1f));
             generatedSkyMaterial.SetFloat("_SunStrength", 0.18f);
             RenderSettings.skybox = generatedSkyMaterial;
+        }
+
+        private void ApplyRuntimeSkyColor(Color horizon)
+        {
+            Color top = Color.Lerp(horizon, new Color(0.09f, 0.12f, 0.22f, 1f), 0.28f);
+            Color bottom = Color.Lerp(horizon, Color.white, 0.40f);
+            Material activeSky = RenderSettings.skybox;
+            if (activeSky != null)
+            {
+                if (activeSky.HasProperty("_TopColor")) activeSky.SetColor("_TopColor", top);
+                if (activeSky.HasProperty("_HorizonColor")) activeSky.SetColor("_HorizonColor", horizon);
+                if (activeSky.HasProperty("_BottomColor")) activeSky.SetColor("_BottomColor", bottom);
+                if (activeSky.HasProperty("_SunColor"))
+                    activeSky.SetColor("_SunColor", Color.Lerp(horizon, Color.white, 0.75f));
+            }
+
+            RenderSettings.ambientSkyColor = Color.Lerp(horizon, Color.white, 0.22f);
+            RenderSettings.ambientEquatorColor = Color.Lerp(horizon, Color.white, 0.42f);
+            RenderSettings.ambientGroundColor = Color.Lerp(horizon, Color.black, 0.34f);
+            RenderSettings.fogColor = Color.Lerp(horizon, Color.white, 0.30f);
+
+            foreach (Camera camera in runtimeCameras)
+                if (camera != null) camera.backgroundColor = horizon;
         }
 
         private void ConfigureVolume()

@@ -11,6 +11,6 @@ public class BgCamera : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        transform.rotation *= Quaternion.Euler(new Vector3(0, 5, 0));
+        transform.Rotate(0, 0.5f, 0);
     }
 }

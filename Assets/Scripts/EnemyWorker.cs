@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Animations.Rigging;
+using UnityEngine.Rendering;
 
 [DefaultExecutionOrder(-1000)]
 [RequireComponent(typeof(CharacterController))]
@@ -14,10 +15,12 @@ public class EnemyWorker : MonoBehaviour
     private const int FormationSlotCount = 5;
     private static float nextSlotAssignmentTime;
     private static bool slotAssignmentsDirty;
+    private static bool focusTransparencyActive;
 
     private Animator anim;
     private NavMeshAgent nav;
     private Animator playerAnim;
+    private PlayerWorker playerWorker;
     [SerializeField] private Transform crosshead;
     public static Transform psword;
     [SerializeField] private Transform sword;
@@ -51,10 +54,18 @@ public class EnemyWorker : MonoBehaviour
     private bool headAxisCorrectionInitialized;
     [SerializeField] private int guardRate = 20;
     [SerializeField] private int health = 2;
-    [Header("Telegraphed attack")]
-    [SerializeField, Min(0.1f)] private float preAttackDuration = 0.55f;
-    private bool preAttackQueued;
-    private float preAttackTimer;
+    [Header("Attack reaction window")]
+    [SerializeField, Range(0f, 0.5f)] private float attackSlowTrigger = 0.1f;
+    [SerializeField, Range(0.001f, 0.2f)] private float attackSlowSpeed = 0.01f;
+    [SerializeField, Min(0.1f)] private float attackSlowDuration = 1f;
+    [SerializeField, Min(0.1f)] private float attackSpeedRestoreSharpness = 8f;
+    private bool attackSlowTriggered;
+    private bool restoringAttackSpeed;
+    private float attackSlowTimer;
+    private bool returnToIdleAfterHurt;
+    private bool hurtStateEntered;
+    private SwordHitbox swordHitbox;
+    private int resolvedPlayerAttackSequence = -1;
     [SerializeField] private float movementSpeed = 5f;
     [Header("NavMesh pursuit")]
     [SerializeField] private float engagementRadius = 4.5f;
@@ -80,6 +91,14 @@ public class EnemyWorker : MonoBehaviour
     private RigBuilder rb;
     [SerializeField] private bool miiMotion;
     private bool usesDirectHandSocketWeapon;
+    private sealed class FadedRendererState
+    {
+        public Material[] OriginalMaterials;
+        public Material[] RuntimeMaterials;
+    }
+    private readonly Dictionary<Renderer, FadedRendererState> fadedRenderers = new();
+    private bool visualsDimmed;
+    private float fadedRendererRefreshTimer;
     // ------- 프레임 독립용: 초 단위 타이머로 변환 -------
     [Header("Frame→Seconds 변환(참고 FPS=60 기준)")]
     [SerializeField] float refFps = 60f;
@@ -102,10 +121,21 @@ public class EnemyWorker : MonoBehaviour
 
     public Vector2 AttackDirection => attackDirection;
     public Vector2 GuardDirection => new(tx, ty);
+    public Transform SwordTransform => sword;
     public int AttackSequence => attackSequence;
-    public bool IsAttackHitActive => health > -1 && attackSequence > 0
+    public bool IsAttackHitActive => health > -1 && attackSequence > 0 && attackSlowTriggered
         && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
     public bool IsAlive => health > -1 && gameObject.activeInHierarchy;
+    public bool HasReachedFormationSlot => IsAlive && HasReachedAssignedSlot();
+
+    public bool IsPerformingAttackSequence(int sequence)
+    {
+        if (health < 0 || sequence <= 0 || attackSequence != sequence || anim == null)
+            return false;
+        if (swing == 1 || anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+            return true;
+        return anim.IsInTransition(0) && anim.GetNextAnimatorStateInfo(0).IsName("Attack");
+    }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetEnemySlots()
@@ -114,6 +144,7 @@ public class EnemyWorker : MonoBehaviour
         SlotAssignments.Clear();
         nextSlotAssignmentTime = 0f;
         slotAssignmentsDirty = true;
+        focusTransparencyActive = false;
     }
 
     private void OnEnable()
@@ -122,14 +153,23 @@ public class EnemyWorker : MonoBehaviour
             ActiveEnemies.Add(this);
         slotAssignmentsDirty = true;
         nextSlotAssignmentTime = 0f;
+        if (focusTransparencyActive)
+            SetVisualDimmed(PlayerWorker.ent == null || PlayerWorker.ent != gameObject);
     }
 
     private void OnDisable()
     {
+        SetSwordDamageTriggersEnabled(true);
+        RestoreOriginalVisualMaterials();
         ActiveEnemies.Remove(this);
         SlotAssignments.Remove(this);
         slotAssignmentsDirty = true;
         nextSlotAssignmentTime = 0f;
+    }
+
+    private void OnApplicationQuit()
+    {
+        RestoreOriginalVisualMaterials();
     }
 
     private void Awake()
@@ -221,6 +261,9 @@ public class EnemyWorker : MonoBehaviour
         playerAnim = PlayerWorker.playerAnimator != null
             ? PlayerWorker.playerAnimator
             : PlayerWorker.player != null ? PlayerWorker.player.GetComponent<Animator>() : null;
+        playerWorker = PlayerWorker.player != null
+            ? PlayerWorker.player.GetComponent<PlayerWorker>()
+            : null;
         rigid = GetComponent<Rigidbody>();
         if (rigid == null) rigid = gameObject.AddComponent<Rigidbody>();
         movementCapsule = GetComponent<CapsuleCollider>();
@@ -242,7 +285,7 @@ public class EnemyWorker : MonoBehaviour
         {
             psword = weaponTarget.transform;
             if (sword == null) sword = psword;
-            SwordHitbox.Configure(weaponTarget.gameObject, this);
+            swordHitbox = SwordHitbox.Configure(weaponTarget.gameObject, this);
         }
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
@@ -321,20 +364,17 @@ public class EnemyWorker : MonoBehaviour
     void Update()
     {
         float dt = Time.deltaTime;
-
-        if (preAttackQueued)
+        if (visualsDimmed)
         {
-            preAttackTimer -= dt;
-            if (preAttackTimer <= 0f)
+            fadedRendererRefreshTimer -= Time.unscaledDeltaTime;
+            if (fadedRendererRefreshTimer <= 0f)
             {
-                preAttackQueued = false;
-                attackDirection = new Vector2(tx, ty);
-                attackSequence++;
-                anim.CrossFade("Attack", 0f, 0);
-                anim.CrossFade("Attack", 0f, 1);
-                swing = 1;
+                fadedRendererRefreshTimer = 0.5f;
+                FadeNewChildRenderers();
             }
         }
+        UpdateAttackSlowdown();
+        UpdateHurtRecovery();
 
         if (swing==0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
@@ -360,26 +400,36 @@ public class EnemyWorker : MonoBehaviour
 
         UpdateNavigation(dt);
 
-        // -------- cool1: 조준 보정 타이머(초) --------
-        if (cool1Timer > 0f)
-        {
-            cool1Timer = Mathf.Max(0f, cool1Timer - dt);
+        if (playerWorker == null && PlayerWorker.player != null)
+            playerWorker = PlayerWorker.player.GetComponent<PlayerWorker>();
+        bool poseLockedByPlayerSlow = playerWorker != null
+                                      && playerWorker.IsHoldingAttackSlowOn(this);
 
-            // 공격 중 빠르게, 그 외에는 느리게
-            bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
-            float k = inAttack ? kFast : kSlow;                 // 초당 반응 속도
-            float a = 1f - Mathf.Exp(-k * dt);                  // 프레임 독립계수
-
-            tx = Mathf.Lerp(tx, rtx, a);
-            ty = Mathf.Lerp(ty, rty, a);
-        }
-        if (cool1Timer <= 0f)
+        // Pause both interpolation and target rerolls while this enemy is the target of the
+        // player's attack slowdown. Keeping rtx/rty intact lets the old motion resume cleanly.
+        if (!poseLockedByPlayerSlow)
         {
-            // 주기 리셋
-            cool1Timer = cool1Frames / refFps;
-            // 준비 자세와 가드 자세 모두 같은 방식으로 새 목표 방향을 선택한다.
-            rtx = Random.Range(-180f, 180f);
-            rty = Random.Range(-30f, 150f);
+            // -------- cool1: 조준 보정 타이머(초) --------
+            if (cool1Timer > 0f)
+            {
+                cool1Timer = Mathf.Max(0f, cool1Timer - dt);
+
+                // 공격 중 빠르게, 그 외에는 느리게
+                bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
+                float k = inAttack ? kFast : kSlow;                 // 초당 반응 속도
+                float a = 1f - Mathf.Exp(-k * dt);                  // 프레임 독립계수
+
+                tx = Mathf.Lerp(tx, rtx, a);
+                ty = Mathf.Lerp(ty, rty, a);
+            }
+            if (cool1Timer <= 0f)
+            {
+                // 주기 리셋
+                cool1Timer = cool1Frames / refFps;
+                // 준비 자세와 가드 자세 모두 같은 방식으로 새 목표 방향을 선택한다.
+                rtx = Random.Range(-180f, 180f);
+                rty = Random.Range(-30f, 150f);
+            }
         }
 
         // -------- cool: 공격 트리거 타이머(초) --------
@@ -388,7 +438,7 @@ public class EnemyWorker : MonoBehaviour
         if (coolTimer <= 0f
             && guard == 0
             && guardTimer <= 0f
-            && !preAttackQueued
+            && CombatDirectionUtility.IsOutsideCenterAttackSector(new Vector2(tx, ty))
             && health > -1
             && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
@@ -407,12 +457,10 @@ public class EnemyWorker : MonoBehaviour
             }
             else if (r < 100 - guardRate)
             {
-                if (PlayerWorker.ent && PlayerWorker.ent.transform == transform)
+                if (PlayerWorker.ent && PlayerWorker.ent.transform == transform
+                    && HasReachedAssignedSlot())
                 {
-                    preAttackQueued = true;
-                    preAttackTimer = preAttackDuration;
-                    anim.CrossFade("pre_attack", 0.08f, 0);
-                    PlayerWorker.player?.GetComponent<PlayerWorker>()?.BeginTelegraphedBlock(new Vector2(tx, ty), preAttackDuration + 0.7f);
+                    BeginAttack();
 
                     // 반대 방향으로 목표 갱신
                     cool1Timer = cool1Frames / refFps;
@@ -489,6 +537,115 @@ public class EnemyWorker : MonoBehaviour
         weaponBlend.data.sourceObjects = sources;
     }
 
+    private void UpdateHurtRecovery()
+    {
+        if (!returnToIdleAfterHurt || anim == null) return;
+        AnimatorStateInfo current = anim.GetCurrentAnimatorStateInfo(0);
+        bool currentIsHurted = current.IsName("Hurted");
+        bool nextIsHurted = anim.IsInTransition(0)
+                            && anim.GetNextAnimatorStateInfo(0).IsName("Hurted");
+
+        if (!hurtStateEntered)
+        {
+            if (currentIsHurted || nextIsHurted)
+                hurtStateEntered = true;
+            return;
+        }
+
+        if (nextIsHurted || (currentIsHurted && current.normalizedTime < 1f)) return;
+
+        guard = 0;
+        swing = 0;
+        anim.CrossFade("Idle", 0f, 0);
+        if (anim.layerCount > 1)
+            anim.CrossFade("Idle", 0f, 1);
+        returnToIdleAfterHurt = false;
+        hurtStateEntered = false;
+    }
+
+    private void BeginAttack()
+    {
+        if (!CombatDirectionUtility.IsOutsideCenterAttackSector(new Vector2(tx, ty)))
+            return;
+
+        attackDirection = new Vector2(tx, ty);
+        attackSequence++;
+        attackSlowTriggered = false;
+        restoringAttackSpeed = false;
+        attackSlowTimer = 0f;
+        SetSwordDamageTriggersEnabled(true);
+        anim.speed = 1f;
+        anim.CrossFade("Attack", 0f, 0);
+        anim.CrossFade("Attack", 0f, 1);
+        swing = 1;
+    }
+
+    private void UpdateAttackSlowdown()
+    {
+        if (anim == null) return;
+
+        bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
+        float normalizedTime = inAttack ? anim.GetCurrentAnimatorStateInfo(0).normalizedTime : 0f;
+        if (!inAttack && anim.IsInTransition(0) && anim.GetNextAnimatorStateInfo(0).IsName("Attack"))
+        {
+            inAttack = true;
+            normalizedTime = anim.GetNextAnimatorStateInfo(0).normalizedTime;
+        }
+
+        if (!attackSlowTriggered && inAttack && normalizedTime >= attackSlowTrigger)
+        {
+            attackSlowTriggered = true;
+            attackSlowTimer = attackSlowDuration;
+            anim.speed = attackSlowSpeed;
+            SetSwordDamageTriggersEnabled(false);
+            PlayerWorker.player?.GetComponent<PlayerWorker>()?.BeginTelegraphedBlock(
+                this, attackDirection, attackSequence, attackSlowDuration);
+        }
+
+        if (!attackSlowTriggered) return;
+        if (!inAttack)
+        {
+            anim.speed = 1f;
+            SetSwordDamageTriggersEnabled(true);
+            attackSlowTriggered = false;
+            restoringAttackSpeed = false;
+            attackSlowTimer = 0f;
+            return;
+        }
+
+        if (attackSlowTimer > 0f)
+        {
+            attackSlowTimer = Mathf.Max(0f, attackSlowTimer - Time.unscaledDeltaTime);
+            anim.speed = attackSlowSpeed;
+            if (attackSlowTimer <= 0f)
+            {
+                PlayerWorker.player?.GetComponent<PlayerWorker>()?.ResolveEnemyAttackAtSlowEnd(
+                    this, attackSequence);
+                restoringAttackSpeed = true;
+                SetSwordDamageTriggersEnabled(true);
+            }
+            return;
+        }
+
+        if (!restoringAttackSpeed) return;
+        float blend = 1f - Mathf.Exp(-attackSpeedRestoreSharpness * Time.unscaledDeltaTime);
+        anim.speed = Mathf.Lerp(anim.speed, 1f, blend);
+        if (anim.speed >= 0.995f)
+        {
+            anim.speed = 1f;
+            restoringAttackSpeed = false;
+        }
+    }
+
+    private void SetSwordDamageTriggersEnabled(bool value)
+    {
+        // psword is a legacy static shared by every enemy, so it must not be used here:
+        // a pooled enemy could otherwise toggle another enemy's blade. Resolve locally.
+        if (swordHitbox == null)
+            swordHitbox = GetComponentInChildren<SwordHitbox>(true);
+        swordHitbox?.SetDamageTriggersEnabled(value);
+    }
+
     // === 유틸 ===
     float RandomRangeFramesToSeconds(Vector2Int framesRange)
     {
@@ -508,6 +665,122 @@ public class EnemyWorker : MonoBehaviour
             return assigned;
 
         return -1;
+    }
+
+    private bool HasReachedAssignedSlot()
+    {
+        int slot = GetAssignedSlot();
+        if (slot < 0 || PlayerWorker.player == null)
+            return false;
+
+        Vector3 offset = CalculateSlotPosition(slot) - transform.position;
+        offset.y = 0f;
+        float stoppingDistance = nav != null && nav.enabled
+            ? nav.stoppingDistance
+            : 0.5f;
+        return offset.sqrMagnitude <= Mathf.Pow(stoppingDistance + 0.35f, 2f);
+    }
+
+    public static void SetFocusedEnemy(GameObject focusedEnemy)
+    {
+        focusTransparencyActive = focusedEnemy != null;
+        foreach (EnemyWorker enemy in ActiveEnemies.ToArray())
+        {
+            if (enemy == null) continue;
+            enemy.SetVisualDimmed(focusTransparencyActive && enemy.gameObject != focusedEnemy);
+        }
+    }
+
+    public static void RestoreAllVisuals()
+    {
+        focusTransparencyActive = false;
+        foreach (EnemyWorker enemy in ActiveEnemies.ToArray())
+            if (enemy != null) enemy.RestoreOriginalVisualMaterials();
+    }
+
+    private void SetVisualDimmed(bool value)
+    {
+        if (!value)
+        {
+            RestoreOriginalVisualMaterials();
+            return;
+        }
+
+        visualsDimmed = true;
+        fadedRendererRefreshTimer = 0.5f;
+        FadeNewChildRenderers();
+    }
+
+    private void FadeNewChildRenderers()
+    {
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null || fadedRenderers.ContainsKey(renderer)) continue;
+            Material[] originals = renderer.sharedMaterials;
+            Material[] runtimeMaterials = new Material[originals.Length];
+            for (int i = 0; i < originals.Length; i++)
+            {
+                Material source = originals[i];
+                if (source == null) continue;
+                Material runtime = new Material(source)
+                {
+                    name = source.name + " (Runtime Half Transparent)",
+                    hideFlags = HideFlags.HideAndDontSave,
+                    renderQueue = (int)RenderQueue.Transparent
+                };
+                ConfigureHalfTransparent(runtime);
+                runtimeMaterials[i] = runtime;
+            }
+
+            fadedRenderers.Add(renderer, new FadedRendererState
+            {
+                OriginalMaterials = originals,
+                RuntimeMaterials = runtimeMaterials
+            });
+            renderer.sharedMaterials = runtimeMaterials;
+        }
+    }
+
+    private static void ConfigureHalfTransparent(Material material)
+    {
+        string[] colorProperties =
+        {
+            "_BaseColor", "_Color", "_TintColor", "_WarriorTintColor",
+            "_GlowColor", "_CoreColor", "_OutlineColor", "_EmissionColor"
+        };
+        foreach (string property in colorProperties)
+        {
+            if (!material.HasProperty(property)) continue;
+            Color color = material.GetColor(property);
+            color.a *= 128f / 255f;
+            material.SetColor(property, color);
+        }
+
+        if (material.HasProperty("_Surface")) material.SetFloat("_Surface", 1f);
+        if (material.HasProperty("_Blend")) material.SetFloat("_Blend", 0f);
+        if (material.HasProperty("_SrcBlend")) material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+        if (material.HasProperty("_DstBlend")) material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+        if (material.HasProperty("_ZWrite")) material.SetFloat("_ZWrite", 0f);
+        material.SetOverrideTag("RenderType", "Transparent");
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+    }
+
+    private void RestoreOriginalVisualMaterials()
+    {
+        foreach (KeyValuePair<Renderer, FadedRendererState> pair in fadedRenderers)
+        {
+            if (pair.Key != null)
+                pair.Key.sharedMaterials = pair.Value.OriginalMaterials;
+            foreach (Material runtime in pair.Value.RuntimeMaterials)
+            {
+                if (runtime == null) continue;
+                if (Application.isPlaying) Destroy(runtime);
+                else DestroyImmediate(runtime);
+            }
+        }
+        fadedRenderers.Clear();
+        visualsDimmed = false;
+        fadedRendererRefreshTimer = 0f;
     }
 
     // Keep the five positions around the player fixed. Existing occupants retain their
@@ -582,12 +855,51 @@ public class EnemyWorker : MonoBehaviour
                 SlotAssignments[unassigned[p[j] - 1]] = freeSlots[j - 1];
     }
 
-    private void ReleaseSlot()
+    private int ReleaseSlot()
     {
+        int releasedSlot = SlotAssignments.TryGetValue(this, out int slot) ? slot : -1;
         SlotAssignments.Remove(this);
         ActiveEnemies.Remove(this);
         slotAssignmentsDirty = true;
         nextSlotAssignmentTime = 0f;
+        return releasedSlot;
+    }
+
+    public static EnemyWorker FindLivingEnemyAdjacentToSlot(int releasedSlot, EnemyWorker defeatedEnemy)
+    {
+        if (releasedSlot < 0 || releasedSlot >= FormationSlotCount)
+            return null;
+
+        for (int distance = 1; distance < FormationSlotCount; distance++)
+        {
+            int clockwiseSlot = (releasedSlot + distance) % FormationSlotCount;
+            int counterClockwiseSlot = (releasedSlot - distance + FormationSlotCount) % FormationSlotCount;
+            EnemyWorker clockwise = FindLivingEnemyInSlot(clockwiseSlot, defeatedEnemy);
+            EnemyWorker counterClockwise = FindLivingEnemyInSlot(counterClockwiseSlot, defeatedEnemy);
+
+            if (clockwise != null && counterClockwise != null)
+            {
+                Vector3 origin = defeatedEnemy != null ? defeatedEnemy.transform.position : Vector3.zero;
+                return (clockwise.transform.position - origin).sqrMagnitude
+                    <= (counterClockwise.transform.position - origin).sqrMagnitude
+                    ? clockwise
+                    : counterClockwise;
+            }
+            if (clockwise != null) return clockwise;
+            if (counterClockwise != null) return counterClockwise;
+        }
+        return null;
+    }
+
+    private static EnemyWorker FindLivingEnemyInSlot(int slot, EnemyWorker excluded)
+    {
+        foreach (KeyValuePair<EnemyWorker, int> assignment in SlotAssignments)
+        {
+            EnemyWorker enemy = assignment.Key;
+            if (assignment.Value == slot && enemy != null && enemy != excluded && enemy.IsAlive)
+                return enemy;
+        }
+        return null;
     }
 
     private Vector3 CalculateSlotPosition(int slot)
@@ -958,12 +1270,15 @@ public class EnemyWorker : MonoBehaviour
     public void ReceiveSwordHit(PlayerWorker attacker, Collider weaponCollider, Collider bodyCollider,
         Vector3 hitPoint, int sourceAttackSequence)
     {
+        if (sourceAttackSequence == resolvedPlayerAttackSequence)
+            return;
         hitPoint = SwordHitbox.ResolveSurfaceContact(weaponCollider, bodyCollider, hitPoint);
         if (attacker != null && attacker.IsAttackHitActive && PlayerWorker.player != null
             && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
         {
+            resolvedPlayerAttackSequence = sourceAttackSequence;
             bool blocked = guard == 1
-                           && CombatDirectionUtility.CanBlock(attacker.AttackDirection, GuardDirection);
+                           && CombatDirectionUtility.CanBlock(attacker.SwordTransform, sword);
             if (!blocked)
             {
                 if (health > 0)
@@ -972,6 +1287,10 @@ public class EnemyWorker : MonoBehaviour
                     Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
+                    guard = 0;
+                    swing = 0;
+                    returnToIdleAfterHurt = true;
+                    hurtStateEntered = false;
                     anim.CrossFade("Hurted", 0f, 0);
                     Vector3 impactDirection = transform.position - PlayerWorker.player.position;
                     impactDirection.y = 0f;
@@ -982,12 +1301,13 @@ public class EnemyWorker : MonoBehaviour
                 else
                 {
                     health = -1;
+                    attacker.NotifyAttackTargetDefeated();
                     Swordplay.Visuals.BrokenEdgeCombatImpactVfx.SpawnHit(transform, hitPoint);
                     CombatImpactAudio.PlayExplosionAtPoint(hitPoint);
                     if (ArenaGameDirector.Instance != null)
                     {
-                        ReleaseSlot();
-                        ArenaGameDirector.Instance.NotifyEnemyDefeated(this);
+                        int releasedSlot = ReleaseSlot();
+                        ArenaGameDirector.Instance.NotifyEnemyDefeated(this, releasedSlot);
                         return;
                     }
                     if (guard == 1)
@@ -1086,19 +1406,38 @@ public class EnemyWorker : MonoBehaviour
         }
     }
 
+    public void ResolvePlayerAttackAtSlowEnd(PlayerWorker attacker, int sourceAttackSequence)
+    {
+        if (attacker == null || sourceAttackSequence != attacker.AttackSequence || !IsAlive)
+            return;
+
+        // There is intentionally no physical contact for this fallback. Use the struck
+        // character's chest centre only in that case; real trigger hits retain their contact.
+        Transform chest = anim != null && anim.isHuman
+            ? anim.GetBoneTransform(HumanBodyBones.Chest)
+            : null;
+        Vector3 impactPoint = chest != null ? chest.position : transform.position + Vector3.up;
+        ReceiveSwordHit(attacker, null, null, impactPoint, sourceAttackSequence);
+    }
+
     public void ResetForPool()
     {
         health = 0; // One successful unblocked hit defeats an arena enemy.
         guard = 0;
         swing = 0;
-        preAttackQueued = false;
+        attackSlowTriggered = false;
+        restoringAttackSpeed = false;
+        attackSlowTimer = 0f;
+        SetSwordDamageTriggersEnabled(true);
         coolTimer = RandomRangeFramesToSeconds(coolFramesRange);
         guardTimer = -1f;
         attackSequence = 0;
+        resolvedPlayerAttackSequence = -1;
         gameObject.tag = "Enemy";
         if (anim != null)
         {
             anim.enabled = true;
+            anim.speed = 1f;
             anim.Rebind();
             anim.Update(0f);
         }

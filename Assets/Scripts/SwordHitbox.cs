@@ -19,6 +19,7 @@ public sealed class SwordHitbox : MonoBehaviour
     private EnemyWorker enemyOwner;
     private Collider[] swordColliders;
     private int observedAttackSequence = -1;
+    private bool damageTriggersEnabled = true;
 
     private struct CapsuleState
     {
@@ -65,6 +66,8 @@ public sealed class SwordHitbox : MonoBehaviour
             previousCapsules.Add(default);
         }
 
+        ApplyDamageTriggerState();
+
         foreach (Rigidbody swordBody in GetComponentsInChildren<Rigidbody>(true))
         {
             swordBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
@@ -78,10 +81,41 @@ public sealed class SwordHitbox : MonoBehaviour
         hitReceivers.Clear();
     }
 
+    /// <summary>
+    /// Temporarily suppresses only this weapon's trigger colliders. Character body and
+    /// movement colliders are deliberately left alone. Resetting the sweep history avoids
+    /// tracing the blade across the entire paused interval when the triggers return.
+    /// </summary>
+    public void SetDamageTriggersEnabled(bool value)
+    {
+        damageTriggersEnabled = value;
+        if (swordColliders == null || swordColliders.Length == 0)
+            ConfigurePhysics();
+        else
+            ApplyDamageTriggerState();
+
+        ResetSweepHistory();
+    }
+
+    private void ApplyDamageTriggerState()
+    {
+        if (swordColliders == null) return;
+        foreach (Collider swordCollider in swordColliders)
+        {
+            if (swordCollider != null)
+                swordCollider.enabled = damageTriggersEnabled;
+        }
+    }
+
     private void FixedUpdate()
     {
         if (swordColliders == null || swordColliders.Length == 0)
             ConfigurePhysics();
+
+        // Pool activation and trigger toggles can rebuild the weapon collider set between
+        // physics ticks. Never assume the sweep-history list still has the same length.
+        if (previousCapsules.Count != (swordColliders?.Length ?? 0))
+            ResetSweepHistory();
 
         int attackSequence = CurrentAttackSequence;
         if (attackSequence != observedAttackSequence)
@@ -94,7 +128,10 @@ public sealed class SwordHitbox : MonoBehaviour
         {
             Collider source = swordColliders[i];
             if (source == null || !source.enabled)
+            {
+                previousCapsules[i] = default;
                 continue;
+            }
 
             CapsuleState current = GetCapsuleState(source);
             CapsuleState previous = previousCapsules[i];
@@ -102,6 +139,13 @@ public sealed class SwordHitbox : MonoBehaviour
                 SweepCapsule(source, previous, current);
             previousCapsules[i] = current;
         }
+    }
+
+    private void ResetSweepHistory()
+    {
+        previousCapsules.Clear();
+        for (int i = 0; i < (swordColliders?.Length ?? 0); i++)
+            previousCapsules.Add(default);
     }
 
     public void ReportTriggerHit(Collider source, Collider target)

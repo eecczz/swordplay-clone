@@ -29,8 +29,13 @@ public class PlayerWorker : MonoBehaviour
     private Vector2 mobileTargetPose;
     private bool mobilePoseInitialized;
     private bool queuedMobileSwing;
+    private Vector2 previousMobileMousePosition;
+    private bool mobileMouseDragging;
     private bool arenaGameplayEnabled = true;
     private float telegraphedGuardTimer;
+    private EnemyWorker telegraphedAttacker;
+    private int telegraphedAttackSequence;
+    private bool telegraphedGuardAttempted;
     [SerializeField] private Vector3 swordOffset;
     private Vector3 camDis;
     [SerializeField] private float canSwing = 10f;
@@ -59,6 +64,22 @@ public class PlayerWorker : MonoBehaviour
     private float verticalVelocity;
     private Vector2 attackDirection;
     private int attackSequence;
+    [Header("Attack reaction window")]
+    [SerializeField, Range(0f, 0.5f)] private float attackSlowTrigger = 0.1f;
+    [SerializeField, Range(0.001f, 0.2f)] private float attackSlowSpeed = 0.01f;
+    [SerializeField, Min(0.1f)] private float attackSlowDuration = 1f;
+    [SerializeField, Min(0.1f)] private float attackSpeedRestoreSharpness = 8f;
+    private bool attackSlowTriggered;
+    private bool restoringAttackSpeed;
+    private float attackSlowTimer;
+    private SwordHitbox swordHitbox;
+    private EnemyWorker slowedAttackTarget;
+    private bool defeatedTargetTriggerLock;
+    private EnemyWorker resolvedIncomingAttacker;
+    private int resolvedIncomingAttackSequence = -1;
+    private bool hurtUpperLayerSuppressed;
+    private bool hurtStateEntered;
+    private float hurtUpperLayerWeight = 1f;
     [Header("Attack hit detection")]
     [SerializeField, Range(0f, 1f)] private float attackHitStart = 0f;
     [SerializeField, Range(0f, 1.2f)] private float attackHitEnd = 1.05f;
@@ -105,9 +126,18 @@ public class PlayerWorker : MonoBehaviour
 
     public Vector2 AttackDirection => attackDirection;
     public Vector2 GuardDirection => new(tx, ty);
+    public Transform SwordTransform => sword;
     public int AttackSequence => attackSequence;
-    public bool IsAttackHitActive => health > -1 && attackSequence > 0
+    public bool IsAttackHitActive => health > -1 && attackSequence > 0 && attackSlowTriggered
         && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
+    public bool IsHoldingAttackSlowOn(EnemyWorker target)
+    {
+        return target != null
+               && slowedAttackTarget == target
+               && attackSlowTriggered
+               && attackSlowTimer > 0f;
+    }
+    public bool UsesMobileInput => inputMode == InputMode.Mobile;
     public void SetSensitivity(float value) => sensitivity = Mathf.Max(0.1f, value);
     public void SetArenaGameplayEnabled(bool value)
     {
@@ -136,7 +166,8 @@ public class PlayerWorker : MonoBehaviour
         Time.timeScale = 1.0f;
         endUI.gameObject.SetActive(false);
         isEnd = false;
-        Cursor.visible = false;
+        if (ArenaGameDirector.Instance == null)
+            Swordplay.UI.MedievalCursorController.HideGameplayCursor(inputMode != InputMode.Mobile);
         anim = animatorOverride != null ? animatorOverride : GetComponent<Animator>();
         playerAnimator = anim;
         InitializeHeadAxisCorrection();
@@ -165,7 +196,7 @@ public class PlayerWorker : MonoBehaviour
             anim.applyRootMotion = false;
         ConfigurePhysicalRoot();
         if (psword != null)
-            SwordHitbox.Configure(psword.gameObject, this);
+            swordHitbox = SwordHitbox.Configure(psword.gameObject, this);
         rig = GetComponentInChildren<Rig>();
         legAnim = GetComponent<LegsAnimator>();
         rb = rigBuilderOverride != null ? rigBuilderOverride : GetComponent<RigBuilder>();
@@ -236,7 +267,7 @@ public class PlayerWorker : MonoBehaviour
             if (isGameMode && hit.collider.gameObject.layer == 10)
             {
                 isEnd = true;
-                Cursor.visible = true;
+                Swordplay.UI.MedievalCursorController.ShowMenuCursor();
                 Invoke("ClearUI", 4);
             }
         }
@@ -265,6 +296,8 @@ public class PlayerWorker : MonoBehaviour
         if (!arenaGameplayEnabled)
             return;
 
+        UpdateAttackSlowdown();
+        UpdateHurtLayerSuppression();
         movementInput = Vector2.zero;
         UpdateAutomaticNavigation();
         if(swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
@@ -272,12 +305,14 @@ public class PlayerWorker : MonoBehaviour
             anim.SetFloat("tx", tx);
             anim.SetFloat("ty", ty);
         }
+        Vector2 pcPoseInput = Vector2.zero;
         if (inputMode == InputMode.Mobile)
             UpdateMobileInput();
         else
         {
-            tx += Input.GetAxis("Mouse X") * sensitivity;
-            ty += Input.GetAxis("Mouse Y") * sensitivity;
+            pcPoseInput = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+            tx += pcPoseInput.x * sensitivity;
+            ty += pcPoseInput.y * sensitivity;
         }
         tx = Mathf.Clamp(tx, -180, 180);
         ty = Mathf.Clamp(ty, -30, 150);
@@ -314,9 +349,22 @@ public class PlayerWorker : MonoBehaviour
             }
         }
         bool manualGuard = inputMode == InputMode.PC && Input.GetMouseButton(1);
+        if (inputMode == InputMode.PC && telegraphedGuardTimer > 0f
+            && (pcPoseInput.sqrMagnitude > 0.0001f || Input.GetMouseButtonDown(1)))
+            TryCommitTelegraphedGuard();
+
         if (telegraphedGuardTimer > 0f)
-            telegraphedGuardTimer -= Time.deltaTime;
-        if (!manualGuard && telegraphedGuardTimer <= 0f)
+            telegraphedGuardTimer = Mathf.Max(0f, telegraphedGuardTimer - Time.unscaledDeltaTime);
+        if (telegraphedAttacker != null
+            && !telegraphedAttacker.IsPerformingAttackSequence(telegraphedAttackSequence))
+            ClearTelegraphedGuard();
+        if (telegraphedAttacker != null && telegraphedGuardTimer <= 0f && !telegraphedGuardAttempted)
+            ClearTelegraphedGuard();
+
+        bool forcedGuard = telegraphedGuardTimer > 0f
+                           || (telegraphedGuardAttempted && telegraphedAttacker != null);
+        bool wantsGuard = manualGuard || forcedGuard;
+        if (!wantsGuard)
         {
             if (guard == 1)
             {
@@ -341,19 +389,21 @@ public class PlayerWorker : MonoBehaviour
         float curScore = (new Vector3(0, 60) - new Vector3(tx, ty)).magnitude;
         float goalScore = preScore - curScore;
         float testScore = (new Vector3(0, 0) - new Vector3(tx, ty)).magnitude;
+        bool attackPoseOutsideCenter = CombatDirectionUtility.IsOutsideCenterAttackSector(
+            new Vector2(tx, ty));
 
         anim.SetFloat("time", 1 - testScore / 180);
         preScore = curScore;
         bool wantsSwing = inputMode == InputMode.Mobile ? queuedMobileSwing : goalScore > canSwing;
         bool mobilePoseReady = inputMode != InputMode.Mobile || Vector2.Distance(new Vector2(tx, ty), mobileTargetPose) <= mobileSwingPoseTolerance;
-        if (health > -1 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded") && wantsSwing && mobilePoseReady && guard == 0 && swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+        EnemyWorker combatTarget = ent != null ? ent.GetComponent<EnemyWorker>() : null;
+        bool targetHasReachedSlot = combatTarget != null && combatTarget.HasReachedFormationSlot;
+        if (inputMode == InputMode.Mobile && wantsSwing && !targetHasReachedSlot)
+            queuedMobileSwing = false;
+        if (health > -1 && targetHasReachedSlot && attackPoseOutsideCenter && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded") && wantsSwing && mobilePoseReady && guard == 0 && swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
             queuedMobileSwing = false;
-            attackDirection = new Vector2(tx, ty);
-            attackSequence++;
-            anim.CrossFade("Attack", 0f, 0);
-            anim.CrossFade("Attack", 0f, 1);
-            SoundManager.Instance.SFXPlay("Swing1");
+            BeginAttack();
         }
         if (anim.GetCurrentAnimatorStateInfo(0).IsName("Attack") && ent != null && !entAnim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && health > -1)
         {
@@ -426,31 +476,306 @@ public class PlayerWorker : MonoBehaviour
         if (Input.touchCount > 0)
         {
             Touch touch = Input.GetTouch(0);
-            mobileTargetPose = new Vector2(
-                Mathf.Lerp(-180f, 180f, touch.position.x / Mathf.Max(1f, Screen.width)),
-                Mathf.Lerp(-30f, 150f, touch.position.y / Mathf.Max(1f, Screen.height)));
+            SetMobileTargetPose(touch.position);
+            if (telegraphedGuardTimer > 0f && touch.phase != TouchPhase.Canceled)
+                TryCommitTelegraphedGuard();
             float swipeSpeed = touch.deltaPosition.magnitude / Mathf.Max(0.001f, Time.unscaledDeltaTime);
             if (touch.phase == TouchPhase.Moved && swipeSpeed >= mobileSwipeSpeed)
                 queuedMobileSwing = true;
+
+            // A real touch always owns this mobile input path when one is present.
+            mobileMouseDragging = false;
         }
-        float t = 1f - Mathf.Exp(-mobilePoseLerpSpeed * Time.deltaTime);
+#if UNITY_EDITOR || UNITY_STANDALONE
+        // A simulated touch can remain present in the editor. Keep mouse handling
+        // independent so that it cannot starve every click after the first one.
+        if (Input.GetMouseButtonDown(0))
+        {
+            Vector2 mousePosition = Input.mousePosition;
+            SetMobileTargetPose(mousePosition);
+            previousMobileMousePosition = mousePosition;
+            mobileMouseDragging = true;
+            if (telegraphedGuardTimer > 0f)
+                TryCommitTelegraphedGuard();
+        }
+        else if (Input.GetMouseButton(0))
+        {
+            Vector2 mousePosition = Input.mousePosition;
+            SetMobileTargetPose(mousePosition);
+            if (telegraphedGuardTimer > 0f)
+                TryCommitTelegraphedGuard();
+            if (mobileMouseDragging)
+            {
+                float swipeSpeed = (mousePosition - previousMobileMousePosition).magnitude
+                    / Mathf.Max(0.001f, Time.unscaledDeltaTime);
+                if (swipeSpeed >= mobileSwipeSpeed)
+                    queuedMobileSwing = true;
+            }
+            previousMobileMousePosition = mousePosition;
+            mobileMouseDragging = true;
+        }
+        else
+            mobileMouseDragging = false;
+#endif
+
+        float t = 1f - Mathf.Exp(-mobilePoseLerpSpeed * Time.unscaledDeltaTime);
         Vector2 pose = Vector2.Lerp(new Vector2(tx, ty), mobileTargetPose, t);
         tx = pose.x;
         ty = pose.y;
     }
 
-    public void BeginTelegraphedBlock(Vector2 incomingDirection, float duration)
+    private void SetMobileTargetPose(Vector2 screenPosition)
     {
-        if (health < 0 || swing != 0) return;
-        tx = incomingDirection.x;
-        ty = incomingDirection.y;
-        telegraphedGuardTimer = Mathf.Max(telegraphedGuardTimer, duration);
-        if (guard == 0)
+        mobileTargetPose = new Vector2(
+            Mathf.Lerp(-180f, 180f, screenPosition.x / Mathf.Max(1f, Screen.width)),
+            Mathf.Lerp(-30f, 150f, screenPosition.y / Mathf.Max(1f, Screen.height)));
+    }
+
+    public void BeginTelegraphedBlock(EnemyWorker attacker, Vector2 _,
+        int incomingAttackSequence, float duration)
+    {
+        if (attacker == null || health < 0) return;
+
+        bool attacking = swing != 0
+                         || (anim != null && anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+                         || (anim != null && anim.IsInTransition(0)
+                             && anim.GetNextAnimatorStateInfo(0).IsName("Attack"));
+        if (attacking)
         {
-            guard = 1;
-            anim.CrossFade("BlockIdle", 0.08f, 0);
-            anim.CrossFade("BlockIdle", 0.08f, 1);
+            // Attacking has priority over the reaction guard in every input mode. Do not
+            // create a guard window: the enemy's forced resolution will treat this as a hit.
+            ClearTelegraphedGuard();
+            return;
         }
+
+        // Pooled enemies restart their local sequence counter. A newly announced attack is
+        // therefore also the safe point to clear an old deduplication key from a prior life.
+        if (resolvedIncomingAttacker == attacker
+            && resolvedIncomingAttackSequence == incomingAttackSequence)
+        {
+            resolvedIncomingAttacker = null;
+            resolvedIncomingAttackSequence = -1;
+        }
+        telegraphedAttacker = attacker;
+        telegraphedAttackSequence = incomingAttackSequence;
+        telegraphedGuardTimer = Mathf.Max(0.1f, duration);
+        telegraphedGuardAttempted = false;
+        queuedMobileSwing = false;
+        swing = 0;
+        guard = 1;
+        anim.CrossFade("BlockIdle", 0f, 0);
+        anim.CrossFade("BlockIdle", 0f, 1);
+    }
+
+    private void TryCommitTelegraphedGuard()
+    {
+        if (telegraphedGuardTimer <= 0f || telegraphedAttacker == null)
+            return;
+        // Input authorizes a guard attempt, but the final result uses the swords' actual
+        // rendered orientations at impact after the guard animation has caught up.
+        telegraphedGuardAttempted = true;
+    }
+
+    private bool CanBlockTelegraphedAttack(EnemyWorker attacker)
+    {
+        return attacker != null
+               && telegraphedAttacker == attacker
+               && telegraphedAttackSequence == attacker.AttackSequence
+               && telegraphedGuardAttempted
+               && CombatDirectionUtility.CanBlock(attacker.SwordTransform, sword)
+               && IsActivelyGuarding();
+    }
+
+    private void ResolveTelegraphedAttack(EnemyWorker attacker)
+    {
+        if (attacker != telegraphedAttacker) return;
+        telegraphedGuardTimer = 0f;
+        telegraphedAttacker = null;
+        telegraphedAttackSequence = 0;
+        telegraphedGuardAttempted = false;
+    }
+
+    private void ClearTelegraphedGuard()
+    {
+        telegraphedGuardTimer = 0f;
+        telegraphedAttacker = null;
+        telegraphedAttackSequence = 0;
+        telegraphedGuardAttempted = false;
+    }
+
+    private void BeginAttack()
+    {
+        if (!CombatDirectionUtility.IsOutsideCenterAttackSector(new Vector2(tx, ty)))
+            return;
+
+        attackDirection = new Vector2(tx, ty);
+        attackSequence++;
+        attackSlowTriggered = false;
+        restoringAttackSpeed = false;
+        attackSlowTimer = 0f;
+        slowedAttackTarget = ent != null ? ent.GetComponent<EnemyWorker>() : null;
+        defeatedTargetTriggerLock = false;
+        SetSwordDamageTriggersEnabled(true);
+        anim.speed = 1f;
+        anim.CrossFade("Attack", 0f, 0);
+        anim.CrossFade("Attack", 0f, 1);
+        SoundManager.Instance.SFXPlay("Swing1");
+    }
+
+    private void UpdateAttackSlowdown()
+    {
+        if (anim == null) return;
+
+        bool inAttack = anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
+        float normalizedTime = inAttack ? anim.GetCurrentAnimatorStateInfo(0).normalizedTime : 0f;
+        if (!inAttack && anim.IsInTransition(0) && anim.GetNextAnimatorStateInfo(0).IsName("Attack"))
+        {
+            inAttack = true;
+            normalizedTime = anim.GetNextAnimatorStateInfo(0).normalizedTime;
+        }
+
+        if (!attackSlowTriggered && inAttack && normalizedTime >= attackSlowTrigger)
+        {
+            attackSlowTriggered = true;
+            attackSlowTimer = attackSlowDuration;
+            anim.speed = attackSlowSpeed;
+            SetSwordDamageTriggersEnabled(false);
+        }
+
+        if (!attackSlowTriggered) return;
+        if (!inAttack)
+        {
+            anim.speed = 1f;
+            if (defeatedTargetTriggerLock && IsIdleStateActive())
+                defeatedTargetTriggerLock = false;
+            if (!defeatedTargetTriggerLock)
+                SetSwordDamageTriggersEnabled(true);
+            attackSlowTriggered = false;
+            restoringAttackSpeed = false;
+            attackSlowTimer = 0f;
+            return;
+        }
+
+        if (attackSlowTimer > 0f)
+        {
+            attackSlowTimer = Mathf.Max(0f, attackSlowTimer - Time.unscaledDeltaTime);
+            anim.speed = attackSlowSpeed;
+            if (attackSlowTimer <= 0f)
+            {
+                ResolveAttackAtSlowEnd();
+                restoringAttackSpeed = true;
+                if (!defeatedTargetTriggerLock)
+                    SetSwordDamageTriggersEnabled(true);
+            }
+            return;
+        }
+
+        if (!restoringAttackSpeed) return;
+        float blend = 1f - Mathf.Exp(-attackSpeedRestoreSharpness * Time.unscaledDeltaTime);
+        anim.speed = Mathf.Lerp(anim.speed, 1f, blend);
+        if (anim.speed >= 0.995f)
+        {
+            anim.speed = 1f;
+            restoringAttackSpeed = false;
+        }
+    }
+
+    private void ResolveAttackAtSlowEnd()
+    {
+        if (slowedAttackTarget != null)
+            slowedAttackTarget.ResolvePlayerAttackAtSlowEnd(this, attackSequence);
+    }
+
+    private void SetSwordDamageTriggersEnabled(bool value)
+    {
+        if (swordHitbox == null)
+            swordHitbox = GetComponentInChildren<SwordHitbox>(true);
+        swordHitbox?.SetDamageTriggersEnabled(value);
+    }
+
+    public void NotifyAttackTargetDefeated()
+    {
+        bool attacking = swing != 0
+                         || (anim != null && anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+                         || (anim != null && anim.IsInTransition(0)
+                             && anim.GetNextAnimatorStateInfo(0).IsName("Attack"));
+        if (!attacking) return;
+
+        defeatedTargetTriggerLock = true;
+        SetSwordDamageTriggersEnabled(false);
+    }
+
+    private bool IsIdleStateActive()
+    {
+        if (anim == null) return true;
+        if (anim.GetCurrentAnimatorStateInfo(0).IsName("Idle"))
+            return true;
+        return anim.IsInTransition(0) && anim.GetNextAnimatorStateInfo(0).IsName("Idle");
+    }
+
+    public void ResolveEnemyAttackAtSlowEnd(EnemyWorker attacker, int sourceAttackSequence)
+    {
+        if (attacker == null || sourceAttackSequence != attacker.AttackSequence)
+            return;
+        ReceiveSwordHit(attacker, null, null, GetForcedImpactPoint(), sourceAttackSequence);
+    }
+
+    private Vector3 GetForcedImpactPoint()
+    {
+        Transform chest = anim != null && anim.isHuman
+            ? anim.GetBoneTransform(HumanBodyBones.Chest)
+            : null;
+        return chest != null ? chest.position : transform.position + Vector3.up;
+    }
+
+    private void EnterHurtState()
+    {
+        guard = 0;
+        swing = 0;
+        queuedMobileSwing = false;
+        ClearTelegraphedGuard();
+        anim.speed = 1f;
+
+        // Layer 1 masks and overrides the upper body for sword/block poses. Leaving it at
+        // full weight hides most of the full-body Hurted clip playing on layer 0.
+        if (anim.layerCount > 1 && !hurtUpperLayerSuppressed)
+        {
+            hurtUpperLayerWeight = anim.GetLayerWeight(1);
+            anim.SetLayerWeight(1, 0f);
+            hurtUpperLayerSuppressed = true;
+        }
+        hurtStateEntered = false;
+        anim.CrossFade("Hurted", 0f, 0);
+    }
+
+    private void UpdateHurtLayerSuppression()
+    {
+        if (!hurtUpperLayerSuppressed || anim == null) return;
+        AnimatorStateInfo current = anim.GetCurrentAnimatorStateInfo(0);
+        bool currentIsHurted = current.IsName("Hurted");
+        bool nextIsHurted = anim.IsInTransition(0)
+                            && anim.GetNextAnimatorStateInfo(0).IsName("Hurted");
+
+        // CrossFade is applied by Animator after this script frame. Do not mistake the
+        // old state visible in that frame for Hurted having already completed.
+        if (!hurtStateEntered)
+        {
+            if (currentIsHurted || nextIsHurted)
+                hurtStateEntered = true;
+            return;
+        }
+
+        if (nextIsHurted || (currentIsHurted && current.normalizedTime < 1f)) return;
+
+        guard = 0;
+        swing = 0;
+        anim.CrossFade("Idle", 0f, 0);
+        if (anim.layerCount > 1)
+            anim.CrossFade("Idle", 0f, 1);
+        if (anim.layerCount > 1)
+            anim.SetLayerWeight(1, hurtUpperLayerWeight);
+        hurtUpperLayerSuppressed = false;
+        hurtStateEntered = false;
     }
 
     private void FixedUpdate()
@@ -734,6 +1059,7 @@ public class PlayerWorker : MonoBehaviour
     private void AssignCombatTarget(GameObject target)
     {
         ent = target;
+        EnemyWorker.SetFocusedEnemy(target);
         if (target == null)
         {
             entAnim = null;
@@ -748,6 +1074,17 @@ public class PlayerWorker : MonoBehaviour
         entAnim = target.GetComponent<Animator>()
             ?? target.GetComponentInChildren<Animator>(true);
         onTarget = entAnim != null;
+    }
+
+    public void SelectTargetAfterEnemyDefeat(GameObject defeatedEnemy, GameObject adjacentEnemy)
+    {
+        if (ent != defeatedEnemy && navigationTarget != defeatedEnemy)
+            return;
+
+        navigationTarget = IsValidNavigationTarget(adjacentEnemy) ? adjacentEnemy : null;
+        navigationTargetRefreshTimer = navigationTargetRefreshInterval;
+        holdingCombatDistance = false;
+        AssignCombatTarget(navigationTarget);
     }
 
     private static bool IsValidNavigationTarget(GameObject candidate)
@@ -938,12 +1275,17 @@ public class PlayerWorker : MonoBehaviour
     public void ReceiveSwordHit(EnemyWorker attacker, Collider weaponCollider, Collider bodyCollider,
         Vector3 hitPoint, int sourceAttackSequence)
     {
+        if (attacker != null && resolvedIncomingAttacker == attacker
+            && resolvedIncomingAttackSequence == sourceAttackSequence)
+            return;
         hitPoint = SwordHitbox.ResolveSurfaceContact(weaponCollider, bodyCollider, hitPoint);
         if (attacker != null && attacker.IsAttackHitActive
             && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted"))
         {
-            bool blocked = guard == 1
-                           && CombatDirectionUtility.CanBlock(attacker.AttackDirection, GuardDirection);
+            resolvedIncomingAttacker = attacker;
+            resolvedIncomingAttackSequence = sourceAttackSequence;
+            bool blocked = CanBlockTelegraphedAttack(attacker);
+            ResolveTelegraphedAttack(attacker);
             if (!blocked)
             {
                 if (health > 0)
@@ -952,7 +1294,7 @@ public class PlayerWorker : MonoBehaviour
                     Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
-                    anim.CrossFade("Hurted", 0f, 0);
+                    EnterHurtState();
                     Vector3 impactDirection = transform.position - attacker.transform.position;
                     impactDirection.y = 0f;
                     ApplyCombatKnockback(impactDirection.normalized * 1.5f);
@@ -982,7 +1324,8 @@ public class PlayerWorker : MonoBehaviour
                     Invoke("Dissolve", 4);
                     Invoke("OverUI", 4);
                     isEnd = true;
-                    Cursor.visible = true;
+                    EnemyWorker.RestoreAllVisuals();
+                    Swordplay.UI.MedievalCursorController.ShowMenuCursor();
                     foreach (Collider collider in GetComponentsInChildren<Collider>())
                     {
                         collider.gameObject.layer = 2;
@@ -1058,17 +1401,40 @@ public class PlayerWorker : MonoBehaviour
         }
     }
 
+    private bool IsActivelyGuarding()
+    {
+        if (guard != 1 || anim == null)
+            return false;
+
+        for (int layer = 0; layer < anim.layerCount; layer++)
+        {
+            if (anim.GetCurrentAnimatorStateInfo(layer).IsName("BlockIdle"))
+                return true;
+            if (anim.IsInTransition(layer)
+                && anim.GetNextAnimatorStateInfo(layer).IsName("BlockIdle"))
+                return true;
+        }
+        return false;
+    }
+
     private void ClearUI()
     {
+        EnemyWorker.RestoreAllVisuals();
         header.text = "클리어!!";
         endUI.gameObject.SetActive(true);
+        Swordplay.UI.MedievalCursorController.ShowMenuCursor();
     }
 
     private void OverUI()
     {
+        EnemyWorker.RestoreAllVisuals();
         header.text = "게임오버!!";
         endUI.gameObject.SetActive(true);
+        Swordplay.UI.MedievalCursorController.ShowMenuCursor();
     }
+
+    private void OnDisable() => EnemyWorker.RestoreAllVisuals();
+    private void OnApplicationQuit() => EnemyWorker.RestoreAllVisuals();
 
     private void Dissolve()
     {

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Swordplay.UI;
 using Swordplay.Visuals;
 using UnityEngine;
 using UnityEngine.UI;
@@ -54,7 +55,6 @@ public sealed class ArenaGameDirector : MonoBehaviour
         if (startBanner != null) startBanner.gameObject.SetActive(false);
         if (volumeSlider != null) volumeSlider.value = PlayerPrefs.GetFloat("ArenaVolume", 1f);
         if (soundToggle != null) soundToggle.isOn = PlayerPrefs.GetInt("ArenaSound", 1) != 0;
-        MedievalUiTheme.Apply(mainPanel, settingsPanel, shopPanel, startBanner, currencyText);
         ApplyAudioSettings();
     }
 
@@ -76,9 +76,11 @@ public sealed class ArenaGameDirector : MonoBehaviour
             player.enabled = true;
             player.SetArenaGameplayEnabled(true);
         }
-        Cursor.visible = false;
-        Cursor.lockState = CursorLockMode.Locked;
+        // Mobile input also accepts a mouse for editor/PC testing. Keep it invisible in
+        // gameplay, but do not lock it to screen centre or later clicks lose their position.
+        MedievalCursorController.HideGameplayCursor(player == null || !player.UsesMobileInput);
         Time.timeScale = 1f;
+        BrokenEdgeStyle.BeginGlobalSkyCycle();
         StartCoroutine(BeginArena());
     }
 
@@ -147,9 +149,12 @@ public sealed class ArenaGameDirector : MonoBehaviour
             .OrderBy(value => value));
     }
 
-    public void NotifyEnemyDefeated(EnemyWorker enemy)
+    public void NotifyEnemyDefeated(EnemyWorker enemy, int releasedSlot)
     {
         if (enemy == null) return;
+        EnemyWorker adjacentEnemy = EnemyWorker.FindLivingEnemyAdjacentToSlot(releasedSlot, enemy);
+        player?.SelectTargetAfterEnemyDefeat(enemy.gameObject,
+            adjacentEnemy != null ? adjacentEnemy.gameObject : null);
         gold += 10;
         if (gold > 0 && gold % 100 == 0) diamonds++;
         PlayerPrefs.SetInt("ArenaGold", gold);
@@ -175,6 +180,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
     public void ShowMainMenu()
     {
         gameRunning = false;
+        EnemyWorker.RestoreAllVisuals();
         mainPanel?.SetActive(true);
         settingsPanel?.SetActive(false);
         shopPanel?.SetActive(false);
@@ -190,13 +196,25 @@ public sealed class ArenaGameDirector : MonoBehaviour
             player.enabled = true;
             player.SetArenaGameplayEnabled(false);
         }
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
+        MedievalCursorController.ShowMenuCursor();
         Time.timeScale = 0f;
     }
 
-    public void ShowSettings() { mainPanel?.SetActive(false); settingsPanel?.SetActive(true); shopPanel?.SetActive(false); }
-    public void ShowShop() { mainPanel?.SetActive(false); settingsPanel?.SetActive(false); shopPanel?.SetActive(true); }
+    public void ShowSettings()
+    {
+        mainPanel?.SetActive(false);
+        settingsPanel?.SetActive(true);
+        shopPanel?.SetActive(false);
+        MedievalCursorController.ShowMenuCursor();
+    }
+
+    public void ShowShop()
+    {
+        mainPanel?.SetActive(false);
+        settingsPanel?.SetActive(false);
+        shopPanel?.SetActive(true);
+        MedievalCursorController.ShowMenuCursor();
+    }
     public void BackToMain() { ApplyAudioSettings(); ShowMainMenu(); }
     public void ApplyAudioSettings()
     {
