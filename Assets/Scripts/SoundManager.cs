@@ -1,25 +1,29 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Audio;
-using System.Collections.Generic;
 using System.Collections;
 
 public class SoundManager : SingletonBase<SoundManager>
 {
+    private const string DefaultBgmFolder = "Audio/BGM/RPG Medieval Times";
+
     [SerializeField]
     private AudioMixer _mixer;
     [SerializeField]
     private AudioSource _bgSound;
 
+    [Header("BGM")]
+    [Tooltip("Resources/Audio/BGM ì•„ë˜ì˜ í´ë”ì…ë‹ˆë‹¤. í™•ì¥ìëŠ” ì…ë ¥í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.")]
+    [SerializeField] private string bgmResourceFolder = DefaultBgmFolder;
+    [Tooltip("ì”¬ì´ ì²˜ìŒ ì—´ë¦´ ë•Œ ì¬ìƒí•  BGM ì´ë¦„ì…ë‹ˆë‹¤. í™•ì¥ìëŠ” ì…ë ¥í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.")]
+    [SerializeField] private string defaultBgmName = "RPG_Love,Calmness,Nature_02";
+
     private void Start()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
 
-        // ÃÊ±â BGM ¼³Á¤
-        if (!string.IsNullOrEmpty(SceneManager.GetActiveScene().name))
-        {
-            BgSoundPlay(SceneManager.GetActiveScene().name);
-        }
+        // ï¿½Ê±ï¿½ BGM ï¿½ï¿½ï¿½ï¿½
+        BGMPlay(defaultBgmName);
     }
 
     private void OnDisable()
@@ -27,7 +31,7 @@ public class SoundManager : SingletonBase<SoundManager>
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
-    // SFX Àç»ı (¿ÀºêÁ§Æ® Ç®¸µ Àû¿ë)
+    // SFX ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® Ç®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
     public void SFXPlay(string sfxName)
     {
         AudioClip clip = Resources.Load<AudioClip>($"Audio/SFX/{sfxName}");
@@ -45,21 +49,41 @@ public class SoundManager : SingletonBase<SoundManager>
         audioSource.clip = clip;
         audioSource.Play();
 
-        // Å¬¸³ÀÌ ³¡³­ ÈÄ AudioSource ºñÈ°¼ºÈ­
+        // Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ AudioSource ï¿½ï¿½È°ï¿½ï¿½È­
         StartCoroutine(DisableAudioSource(audioSource, clip.length));
     }
 
-    // BGM Àç»ı
-    private void BgSoundPlay(string sceneName)
+    // BGM ï¿½ï¿½ï¿½
+    public void BGMPlay(string bgmName)
     {
-        AudioClip clip = Resources.Load<AudioClip>($"Audio/BGM/{sceneName}");
-        if (clip == null)
+        if (string.IsNullOrWhiteSpace(bgmName))
         {
-            Debug.LogWarning($"BGM for scene '{sceneName}' not found in Resources/Audio/BGM/");
+            Debug.LogWarning("BGM name is empty.", this);
             return;
         }
 
-        _bgSound.outputAudioMixerGroup = _mixer.FindMatchingGroups("BGM")[0];
+        string trimmedName = bgmName.Trim();
+        string resourcePath = trimmedName.Contains("/")
+            ? $"Audio/BGM/{trimmedName.TrimStart('/')}"
+            : $"{bgmResourceFolder.TrimEnd('/')}/{trimmedName}";
+        AudioClip clip = Resources.Load<AudioClip>(resourcePath);
+        if (clip == null)
+        {
+            Debug.LogWarning($"BGM '{trimmedName}' not found at Resources/{resourcePath}.", this);
+            return;
+        }
+
+        if (_bgSound == null)
+            _bgSound = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
+        if (_bgSound.clip == clip && _bgSound.isPlaying)
+            return;
+
+        if (_mixer != null)
+        {
+            AudioMixerGroup[] groups = _mixer.FindMatchingGroups("BGM");
+            if (groups.Length > 0)
+                _bgSound.outputAudioMixerGroup = groups[0];
+        }
         _bgSound.clip = clip;
         _bgSound.loop = true;
         _bgSound.volume = 1f;
@@ -68,10 +92,10 @@ public class SoundManager : SingletonBase<SoundManager>
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        BgSoundPlay(scene.name);
+        BGMPlay(defaultBgmName);
     }
 
-    // AudioSource ºñÈ°¼ºÈ­ ÄÚ·çÆ¾
+    // AudioSource ï¿½ï¿½È°ï¿½ï¿½È­ ï¿½Ú·ï¿½Æ¾
     private IEnumerator DisableAudioSource(AudioSource source, float delay)
     {
         yield return new WaitForSeconds(delay);

@@ -34,8 +34,20 @@ public sealed class ArenaGameDirector : MonoBehaviour
     [SerializeField] private Slider volumeSlider;
     [SerializeField] private Toggle soundToggle;
     [SerializeField] private Text shopStatusText;
+    [SerializeField] private GameObject defeatedEnemiesHud;
+    [SerializeField] private Text defeatedEnemiesText;
     [SerializeField, Min(1)] private int weaponAuraPrice = 50;
     [SerializeField, Min(1)] private int characterPrice = 100;
+
+    [Header("Combat VFX")]
+    [Tooltip("모든 캐릭터의 피격/가드/넉백 파동에 공통으로 적용되는 색상입니다.")]
+    [SerializeField, ColorUsage(true, true)] private Color impactWaveColor = new(1.2f, 0.35f, 0.08f, 1f);
+
+    [Header("Music")]
+    [Tooltip("메인/설정/상점 화면에서 반복 재생할 BGM 이름입니다.")]
+    [SerializeField] private string menuBgmName = "RPG_Love,Calmness,Nature_02";
+    [Tooltip("GAME START 직후부터 전투 중 반복 재생할 BGM 이름입니다.")]
+    [SerializeField] private string gameplayBgmName = "RPG_Figths,Enemies,Danger_02";
 
     private readonly Queue<EnemyWorker> available = new();
     private readonly Dictionary<EnemyWorker, Pose> authoredSpawnPoses = new();
@@ -47,6 +59,9 @@ public sealed class ArenaGameDirector : MonoBehaviour
     public float EnemyTempoMultiplier => Mathf.Pow(
         enemyTempoMultiplierPerDefeat, defeatedEnemiesThisRun);
     public int DefeatedEnemiesThisRun => defeatedEnemiesThisRun;
+    public static Color ImpactWaveColor => Instance != null
+        ? Instance.impactWaveColor
+        : new Color(1.2f, 0.35f, 0.08f, 1f);
 
     private void Awake()
     {
@@ -65,6 +80,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
         if (volumeSlider != null) volumeSlider.value = PlayerPrefs.GetFloat("ArenaVolume", 1f);
         if (soundToggle != null) soundToggle.isOn = PlayerPrefs.GetInt("ArenaSound", 1) != 0;
         ApplyAudioSettings();
+        RefreshDefeatedEnemies();
     }
 
     public void StartGame()
@@ -72,6 +88,10 @@ public sealed class ArenaGameDirector : MonoBehaviour
         if (gameRunning) return;
         gameRunning = true;
         defeatedEnemiesThisRun = 0;
+        PlayBgm(gameplayBgmName);
+        if (currencyText != null) currencyText.gameObject.SetActive(false);
+        if (defeatedEnemiesHud != null) defeatedEnemiesHud.SetActive(true);
+        RefreshDefeatedEnemies();
         mainPanel?.SetActive(false);
         settingsPanel?.SetActive(false);
         shopPanel?.SetActive(false);
@@ -163,6 +183,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
     {
         if (enemy == null) return;
         defeatedEnemiesThisRun++;
+        RefreshDefeatedEnemies();
         EnemyWorker adjacentEnemy = EnemyWorker.FindLivingEnemyAdjacentToSlot(releasedSlot, enemy);
         player?.SelectTargetAfterEnemyDefeat(enemy.gameObject,
             adjacentEnemy != null ? adjacentEnemy.gameObject : null);
@@ -192,6 +213,9 @@ public sealed class ArenaGameDirector : MonoBehaviour
     {
         gameRunning = false;
         EnemyWorker.RestoreAllVisuals();
+        PlayBgm(menuBgmName);
+        if (currencyText != null) currencyText.gameObject.SetActive(true);
+        if (defeatedEnemiesHud != null) defeatedEnemiesHud.SetActive(false);
         mainPanel?.SetActive(true);
         settingsPanel?.SetActive(false);
         shopPanel?.SetActive(false);
@@ -241,6 +265,19 @@ public sealed class ArenaGameDirector : MonoBehaviour
     private void RefreshCurrency()
     {
         if (currencyText != null) currencyText.text = $"● {gold:N0}     ◆ {diamonds:N0}";
+    }
+
+    private void RefreshDefeatedEnemies()
+    {
+        if (defeatedEnemiesText != null)
+            defeatedEnemiesText.text = defeatedEnemiesThisRun.ToString("N0");
+    }
+
+    private static void PlayBgm(string bgmName)
+    {
+        SoundManager soundManager = SoundManager.Instance;
+        if (soundManager != null)
+            soundManager.BGMPlay(bgmName);
     }
 
     public void PurchaseWeaponAuraSkin()

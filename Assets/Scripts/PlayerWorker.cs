@@ -755,7 +755,7 @@ public class PlayerWorker : MonoBehaviour
         anim.speed = 1f;
         anim.CrossFade("Attack", 0f, 0);
         anim.CrossFade("Attack", 0f, 1);
-        SoundManager.Instance.SFXPlay("Swing1");
+        // SoundManager.Instance.SFXPlay("Swing1"); // Temporarily mute the player's swing SFX.
     }
 
     private void UpdateAttackSlowdown()
@@ -1200,7 +1200,7 @@ public class PlayerWorker : MonoBehaviour
         float bestScore = float.NegativeInfinity;
         foreach (GameObject candidate in GameObject.FindGameObjectsWithTag("Enemy"))
         {
-            if (!IsValidNavigationTarget(candidate)) continue;
+            if (!IsCombatReadyTarget(candidate)) continue;
             Vector3 delta = candidate.transform.position - transform.position;
             delta.y = 0f;
             float distance = Mathf.Max(0.01f, delta.magnitude);
@@ -1226,7 +1226,7 @@ public class PlayerWorker : MonoBehaviour
         float nearestDistance = float.PositiveInfinity;
         foreach (GameObject candidate in GameObject.FindGameObjectsWithTag("Enemy"))
         {
-            if (!IsValidNavigationTarget(candidate)) continue;
+            if (!IsCombatReadyTarget(candidate)) continue;
             Vector3 direction = candidate.transform.position - transform.position;
             direction.y = 0f;
             float distance = direction.magnitude;
@@ -1244,6 +1244,12 @@ public class PlayerWorker : MonoBehaviour
 
     private void AssignCombatTarget(GameObject target)
     {
+        // A freshly pooled enemy may already be alive and tagged while it is still travelling
+        // to its formation position. Do not publish it as ent until it is actually combat
+        // ready; the navigation refresh retries automatically after it arrives.
+        if (target != null && readinessTarget != target && !IsCombatReadyTarget(target))
+            target = null;
+
         bool targetChanged = readinessTarget != target;
         readinessTarget = target;
         ent = target;
@@ -1329,7 +1335,7 @@ public class PlayerWorker : MonoBehaviour
         if (ent != defeatedEnemy && navigationTarget != defeatedEnemy)
             return;
 
-        navigationTarget = IsValidNavigationTarget(adjacentEnemy) ? adjacentEnemy : null;
+        navigationTarget = IsCombatReadyTarget(adjacentEnemy) ? adjacentEnemy : null;
         navigationTargetRefreshTimer = navigationTargetRefreshInterval;
         holdingCombatDistance = false;
         AssignCombatTarget(navigationTarget);
@@ -1338,6 +1344,14 @@ public class PlayerWorker : MonoBehaviour
     private static bool IsValidNavigationTarget(GameObject candidate)
     {
         return candidate != null && candidate.activeInHierarchy && candidate.CompareTag("Enemy");
+    }
+
+    private static bool IsCombatReadyTarget(GameObject candidate)
+    {
+        if (!IsValidNavigationTarget(candidate))
+            return false;
+        EnemyWorker worker = candidate.GetComponent<EnemyWorker>();
+        return worker != null && worker.IsAvailableForCombatFocus;
     }
 
     private void UpdateNavigationAnimation()

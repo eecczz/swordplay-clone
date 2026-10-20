@@ -40,7 +40,7 @@ namespace Swordplay.Visuals
             if (defenderRoot == null) return;
 
             BrokenEdgeCombatImpactVfx effect = Create("Broken Edge Guard Ripple", contactPoint, ImpactStyle.Guard);
-            effect.BuildGuard(GetPaletteColor(defenderRoot));
+            effect.BuildGuard(ArenaGameDirector.ImpactWaveColor);
         }
 
         private static BrokenEdgeCombatImpactVfx Create(string effectName, Vector3 position, ImpactStyle impactStyle)
@@ -52,13 +52,6 @@ namespace Swordplay.Visuals
             effect.targetCamera = Camera.main;
             effect.FaceCamera();
             return effect;
-        }
-
-        private static Color GetPaletteColor(Transform owner)
-        {
-            KnightRocketLegVfx palette = owner.GetComponent<KnightRocketLegVfx>();
-            if (palette == null) palette = owner.GetComponentInChildren<KnightRocketLegVfx>(true);
-            return palette != null ? palette.EffectColor : new Color(0.32f, 0.95f, 1f, 1f);
         }
 
         private void BuildHit()

@@ -7,7 +7,7 @@ namespace Swordplay.Visuals
         private const int Segments = 72;
         private LineRenderer[] rings;
         private float age;
-        private Color effectColor = new Color(1f, 0.48f, 0.045f, 1f);
+        private Color effectColor = new Color(1.2f, 0.35f, 0.08f, 1f);
         private const float Lifetime = 0.72f;
 
         public static void Spawn(Transform victimRoot, Vector3 contactPoint)
@@ -17,8 +17,7 @@ namespace Swordplay.Visuals
             GameObject effect = new GameObject("Broken Edge Ground Impact Ring");
             effect.transform.position = ground;
             BrokenEdgeGroundImpactVfx instance = effect.AddComponent<BrokenEdgeGroundImpactVfx>();
-            KnightRocketLegVfx palette = victimRoot.GetComponent<KnightRocketLegVfx>();
-            if (palette != null) instance.effectColor = palette.EffectColor;
+            instance.effectColor = ArenaGameDirector.ImpactWaveColor;
             instance.Build();
         }
 

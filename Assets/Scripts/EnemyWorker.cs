@@ -125,6 +125,8 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField, Min(0.1f)] private float knockbackSlideDamping = 6f;
     private bool physicsReaction;
     private float physicsReactionTimer;
+    private float combatReactionLockTimer;
+    private const float CombatReactionWatchdogSeconds = 4f;
     private Vector3 knockbackStartPosition;
     private Vector3 knockbackDirection;
     private RigBuilder rb;
@@ -165,6 +167,7 @@ public class EnemyWorker : MonoBehaviour
         && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
     public bool IsAlive => health > -1 && gameObject.activeInHierarchy;
     public bool HasReachedFormationSlot => IsAlive && HasReachedAssignedSlot();
+    public bool IsAvailableForCombatFocus => HasReachedFormationSlot && !IsCombatReactionLocked();
 
     public bool IsPerformingAttackSequence(int sequence)
     {
@@ -203,6 +206,7 @@ public class EnemyWorker : MonoBehaviour
     private void OnDisable()
     {
         SetSwordDamageTriggersEnabled(true);
+        ResetTransientCombatState();
         RestoreOriginalVisualMaterials();
         ActiveEnemies.Remove(this);
         SlotAssignments.Remove(this);
@@ -421,6 +425,7 @@ public class EnemyWorker : MonoBehaviour
         }
         UpdateAttackSlowdown();
         UpdateHurtRecovery();
+        UpdateCombatReactionWatchdog();
 
         if (swing==0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
@@ -899,6 +904,80 @@ public class EnemyWorker : MonoBehaviour
         return false;
     }
 
+    private void UpdateCombatReactionWatchdog()
+    {
+        if (!IsCombatReactionLocked())
+        {
+            combatReactionLockTimer = 0f;
+            return;
+        }
+
+        combatReactionLockTimer += Time.unscaledDeltaTime;
+        if (combatReactionLockTimer < CombatReactionWatchdogSeconds)
+            return;
+
+        // A reaction animation or a pooled knockback may be interrupted by a defeat and
+        // target hand-off. Never allow that transient state to permanently keep the current
+        // focus translucent and non-interactive.
+        ResetTransientCombatState(true);
+        guard = 0;
+        guardTimer = -1f;
+        swing = 0;
+        coolTimer = GetActionCooldown();
+        if (anim != null && health > -1)
+        {
+            anim.ResetTrigger("EnterBlock");
+            anim.ResetTrigger("ExitBlock");
+            anim.CrossFade("Idle", 0f, 0);
+            if (anim.layerCount > 1)
+                anim.CrossFade("Idle", 0f, 1);
+        }
+    }
+
+    private void ResetTransientCombatState(bool restoreMovement = false)
+    {
+        physicsReaction = false;
+        physicsReactionTimer = 0f;
+        combatReactionLockTimer = 0f;
+        returnToIdleAfterHurt = false;
+        hurtStateEntered = false;
+        attackSlowTriggered = false;
+        restoringAttackSpeed = false;
+        attackSlowTimer = 0f;
+        verticalVelocity = 0f;
+        navStuckTimer = 0f;
+        SetSwordDamageTriggersEnabled(true);
+
+        if (anim != null)
+            anim.speed = 1f;
+        if (rigid != null)
+        {
+            rigid.linearVelocity = Vector3.zero;
+            rigid.angularVelocity = Vector3.zero;
+            rigid.linearDamping = 0f;
+            rigid.angularDamping = 0f;
+            rigid.useGravity = false;
+            rigid.detectCollisions = false;
+            rigid.isKinematic = true;
+            rigid.constraints = RigidbodyConstraints.FreezeAll;
+        }
+        if (movementCapsule != null)
+            movementCapsule.enabled = false;
+        if (restoreMovement)
+        {
+            if (characterController != null)
+                characterController.enabled = true;
+            if (nav != null)
+            {
+                nav.enabled = true;
+                nav.updatePosition = true;
+                if (nav.isOnNavMesh)
+                    nav.isStopped = false;
+            }
+            destinationRefreshTimer = 0f;
+        }
+    }
+
     private void FadeNewChildRenderers()
     {
         foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
@@ -1080,13 +1159,19 @@ public class EnemyWorker : MonoBehaviour
 
     private static EnemyWorker FindLivingEnemyInSlot(int slot, EnemyWorker excluded)
     {
+        EnemyWorker candidate = null;
         foreach (KeyValuePair<EnemyWorker, int> assignment in SlotAssignments)
         {
             EnemyWorker enemy = assignment.Key;
             if (assignment.Value == slot && enemy != null && enemy != excluded && enemy.IsAlive)
-                return enemy;
+            {
+                candidate = enemy;
+                break;
+            }
         }
-        return null;
+        // Evaluate readiness after dictionary enumeration. HasReachedAssignedSlot can refresh
+        // the assignment table, which must never happen while it is being enumerated.
+        return candidate != null && candidate.IsAvailableForCombatFocus ? candidate : null;
     }
 
     private Vector3 CalculateSlotPosition(int slot)
@@ -1766,6 +1851,7 @@ public class EnemyWorker : MonoBehaviour
 
     public void ResetForPool()
     {
+        ResetTransientCombatState(true);
         health = 0; // One successful unblocked hit defeats an arena enemy.
         guard = 0;
         swing = 0;

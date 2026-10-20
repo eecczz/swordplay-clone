@@ -101,7 +101,7 @@ public static class ArenaContentInstaller
         GameObject main = MakePanel(canvas.transform, "Main Menu", new Color(.02f,.035f,.07f,.24f));
         Text title = MakeText(main.transform, "Title", "SWORDPLAY", 58, TextAnchor.MiddleCenter,
             new Vector2(.5f,.72f), new Vector2(.5f,.72f), Vector2.zero, new Vector2(620,90));
-        title.color = new Color(1f,.88f,.55f);
+        title.color = Color.white;
         Button start = MakeButton(main.transform, "GAME START", new Vector2(0,-10));
         Button settings = MakeButton(main.transform, "SETTINGS", new Vector2(0,-85));
         Button shop = MakeButton(main.transform, "SHOP", new Vector2(0,-160));
@@ -124,7 +124,7 @@ public static class ArenaContentInstaller
         Button shopBack = MakeButton(shopPanel.transform, "BACK", new Vector2(0,-230));
         Text banner = MakeText(canvas.transform, "Start Banner", "START!", 82, TextAnchor.MiddleCenter,
             new Vector2(.5f,.5f), new Vector2(.5f,.5f), Vector2.zero, new Vector2(700,120));
-        banner.color = new Color(1f,.83f,.2f);
+        banner.color = Color.white;
 
         SerializedObject data = new(director);
         data.FindProperty("player").objectReferenceValue = player;
@@ -233,7 +233,8 @@ public static class ArenaContentInstaller
 
     private static Canvas CreateCanvas(Transform parent) { var go=new GameObject("Arena UI",typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));go.transform.SetParent(parent);var c=go.GetComponent<Canvas>();c.renderMode=RenderMode.ScreenSpaceOverlay;var s=go.GetComponent<CanvasScaler>();s.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;s.referenceResolution=new Vector2(1920,1080);return c; }
     private static GameObject MakePanel(Transform p,string n,Color c){var g=new GameObject(n,typeof(RectTransform),typeof(Image));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=r.offsetMax=Vector2.zero;g.GetComponent<Image>().color=c;return g;}
-    private static Font Font()=>Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+    private static Font Font()=>AssetDatabase.LoadAssetAtPath<Font>("Assets/UI/Medieval/Cinzel-VariableFont_wght.ttf")
+        ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
     private static Text MakeText(Transform p,string n,string value,int size,TextAnchor align,Vector2 amin,Vector2 amax,Vector2 pos,Vector2 wh){var g=new GameObject(n,typeof(RectTransform),typeof(Text));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=amin;r.anchorMax=amax;r.sizeDelta=wh;r.anchoredPosition=pos;var t=g.GetComponent<Text>();t.font=Font();t.text=value;t.fontSize=size;t.alignment=align;t.color=Color.white;t.fontStyle=FontStyle.Bold;return t;}
     private static Button MakeButton(Transform p,string label,Vector2 pos){var g=new GameObject(label,typeof(RectTransform),typeof(Image),typeof(Button));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.sizeDelta=new Vector2(360,58);r.anchoredPosition=pos;g.GetComponent<Image>().color=new Color(.08f,.13f,.2f,.9f);var t=MakeText(g.transform,"Label",label,25,TextAnchor.MiddleCenter,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);t.rectTransform.offsetMin=t.rectTransform.offsetMax=Vector2.zero;return g.GetComponent<Button>();}
     private static Slider MakeSlider(Transform p,string n,string label,Vector2 pos,float min,float max,float value){MakeText(p,n+" Label",label,22,TextAnchor.MiddleRight,new Vector2(.5f,.5f),new Vector2(.5f,.5f),pos+new Vector2(-230,0),new Vector2(180,42));var g=new GameObject(n,typeof(RectTransform),typeof(Slider));g.transform.SetParent(p,false);var r=(RectTransform)g.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.sizeDelta=new Vector2(360,36);r.anchoredPosition=pos+new Vector2(80,0);var bg=new GameObject("Background",typeof(RectTransform),typeof(Image));bg.transform.SetParent(g.transform,false);((RectTransform)bg.transform).anchorMin=Vector2.zero;((RectTransform)bg.transform).anchorMax=Vector2.one;bg.GetComponent<Image>().color=new Color(.1f,.15f,.22f,.9f);var fill=new GameObject("Fill",typeof(RectTransform),typeof(Image));fill.transform.SetParent(bg.transform,false);fill.GetComponent<Image>().color=new Color(.2f,.8f,1f,.9f);var s=g.GetComponent<Slider>();s.fillRect=(RectTransform)fill.transform;s.minValue=min;s.maxValue=max;s.value=value;return s;}
