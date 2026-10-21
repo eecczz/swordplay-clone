@@ -15375,6 +15375,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -151770,7 +151773,7 @@ GameObject:
   - component: {fileID: 330231347}
   - component: {fileID: 330231346}
   - component: {fileID: 330231344}
-  - component: {fileID: 330231343}
+  - component: {fileID: 330231354}
   - component: {fileID: 330231353}
   m_Layer: 6
   m_Name: FPSMesh - GanzSe Free Modular Character Original 1_0
@@ -151779,73 +151782,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &330231343
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330231342}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7bab765192f5b6e4d800cd8736de8afa, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  crosshead: {fileID: 899321058}
-  animatorOverride: {fileID: 0}
-  rigBuilderOverride: {fileID: 0}
-  sword: {fileID: 72019487}
-  sensitivity: 5
-  inputMode: 0
-  mobilePoseLerpSpeed: 12
-  mobileSwipeSpeed: 900
-  mobileSwingPoseTolerance: 4
-  swordOffset: {x: 0, y: 0, z: 0}
-  canSwing: 10
-  health: 10
-  attackSlowTrigger: 0.1
-  attackSlowSpeed: 0.02
-  attackSlowDuration: 1
-  attackSpeedRestoreSharpness: 8
-  attackHitStart: 0
-  attackHitEnd: 1.05
-  swordSlashTravelInBladeLengths: 2.25
-  swordSlashBladeWidth: 1
-  swordSlashIntensity: 1.1
-  swordSlashTextureFlow: 0.16
-  swordSlashUseWeaponEffectColor: 1
-  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 1}
-  swordSlashMaterialOverride: {fileID: 0}
-  maxStepHeight: 0.45
-  maxSlopeAngle: 55
-  movementSkin: 0.03
-  groundAcceleration: 35
-  airAcceleration: 8
-  facingLerpSpeed: 5
-  targetSwitchAttackGrace: 0.65
-  targetFacingReadyAngle: 12
-  targetFacingReadyHold: 0.18
-  knockbackDistance: 0.5
-  knockbackSlideDamping: 6
-  knockbackStopSpeed: 0.15
-  knockbackMaxTime: 3
-  ma: {fileID: 326890593}
-  headRotOffset: {x: 0, y: 0, z: 0}
-  headLookSpeed: 12
-  movementSpeed: 7.5
-  navigationTargetRefreshInterval: 0.25
-  navigationStoppingDistance: 2.4
-  navigationResumeDistance: 3.4
-  camPos: {x: 0, y: 2, z: 0}
-  endUI: {fileID: 1004381299}
-  header: {fileID: 375720714}
-  isGameMode: 1
-  miiMotion: 0
-  body: {fileID: 179405514}
-  des: {fileID: 0}
-  weaponBlend: {fileID: 1276011775}
-  rightArmIK: {fileID: 745062693}
-  leftArmIK: {fileID: 1748043509}
 --- !u!114 &330231344
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -152060,7 +151996,7 @@ Animator:
   m_GameObject: {fileID: 330231342}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 831f7229e82863e4d80ada075e09eba6, type: 3}
-  m_Controller: {fileID: 9100000, guid: d3b60d9130c5504458d3ebb07e4345f3, type: 2}
+  m_Controller: {fileID: 9100000, guid: e795d6c2fc474c54695b8ac8fa9fb8ab, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 1
@@ -152119,6 +152055,76 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 0
+--- !u!114 &330231354
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330231342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 090a0bf33028490f9d5718de0edb0dbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  crosshead: {fileID: 899321058}
+  animatorOverride: {fileID: 0}
+  rigBuilderOverride: {fileID: 0}
+  sword: {fileID: 72019487}
+  sensitivity: 5
+  inputMode: 0
+  mobilePoseLerpSpeed: 12
+  mobileSwipeSpeed: 900
+  mobileSwingPoseTolerance: 4
+  pcAttackDirectionTolerance: 30
+  pcAttackMaximumSpeed: 3
+  pcAttackEntryGrace: 0.15
+  swordOffset: {x: 0, y: 0, z: 0}
+  canSwing: 10
+  health: 10
+  attackSlowTrigger: 0.1
+  attackSlowSpeed: 0.02
+  attackSlowDuration: 1
+  attackSpeedRestoreSharpness: 8
+  attackHitStart: 0
+  attackHitEnd: 1.05
+  swordSlashTravelInBladeLengths: 2.25
+  swordSlashBladeWidth: 1
+  swordSlashIntensity: 1.1
+  swordSlashTextureFlow: 0.16
+  swordSlashUseWeaponEffectColor: 1
+  swordSlashColor: {r: 1.2, g: 0.35, b: 0.08, a: 0.9}
+  swordSlashMaterialOverride: {fileID: 0}
+  maxStepHeight: 0.45
+  maxSlopeAngle: 55
+  movementSkin: 0.03
+  groundAcceleration: 35
+  airAcceleration: 8
+  facingLerpSpeed: 5
+  targetSwitchAttackGrace: 0.65
+  targetFacingReadyAngle: 12
+  targetFacingReadyHold: 0.18
+  knockbackDistance: 0.5
+  knockbackSlideDamping: 6
+  knockbackStopSpeed: 0.15
+  knockbackMaxTime: 3
+  ma: {fileID: 326890593}
+  headRotOffset: {x: 0, y: 0, z: 0}
+  headLookSpeed: 12
+  movementSpeed: 7.5
+  navigationTargetRefreshInterval: 0.25
+  navigationStoppingDistance: 2.4
+  navigationResumeDistance: 3.4
+  camPos: {x: 0, y: 2, z: 0}
+  endUI: {fileID: 1004381299}
+  header: {fileID: 375720714}
+  isGameMode: 1
+  miiMotion: 0
+  body: {fileID: 179405514}
+  des: {fileID: 0}
+  weaponBlend: {fileID: 1276011775}
+  rightArmIK: {fileID: 745062693}
+  leftArmIK: {fileID: 1748043509}
 --- !u!1 &330360020
 GameObject:
   m_ObjectHideFlags: 0
@@ -177386,6 +177392,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -225244,6 +225253,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -250501,6 +250513,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -287871,6 +287886,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -328371,6 +328389,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -362639,6 +362660,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -446543,6 +446567,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -482061,6 +482088,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -585544,6 +585574,10 @@ MonoBehaviour:
   mobilePoseLerpSpeed: 12
   mobileSwipeSpeed: 900
   mobileSwingPoseTolerance: 4
+  pcAttackGoalThreshold: 0.001
+  pcAttackSpeedPerMouseUnit: 1.25
+  pcAttackMaximumSpeed: 3
+  pcAttackEntryGrace: 0.15
   swordOffset: {x: 0, y: 0, z: 0}
   canSwing: 10
   health: 10
@@ -628878,6 +628912,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -666544,7 +666581,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 37e1788aa0194fd59496794581f64e6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  player: {fileID: 330231343}
+  player: {fileID: 0}
   enemyPool:
   - {fileID: 1704601485}
   - {fileID: 621330798}
@@ -666556,7 +666593,7 @@ MonoBehaviour:
   - {fileID: 1506863169}
   - {fileID: 1383010037}
   - {fileID: 475242594}
-  initialActiveEnemies: 5
+  initialActiveEnemies: 0
   entranceInterval: 0.32
   recycleDelay: 0.35
   enemyTempoMultiplierPerDefeat: 0.94
@@ -682254,6 +682291,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -738830,6 +738870,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -770979,6 +771022,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -787683,6 +787729,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -889962,6 +890011,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -971784,6 +971836,9 @@ MonoBehaviour:
   formationOppositeLaneSeparation: 0.8
   slotArrivalTolerance: 0.8
   slotDepartureTolerance: 1.35
+  focusedSlotRecoveryTimeout: 5
+  focusedRecoveryAvoidancePriority: 5
+  navMeshRecoverySampleRadius: 1.5
   knockbackMaxTime: 1.5
   knockbackStopSpeed: 0.15
   knockbackDistance: 5
@@ -975852,6 +975907,10 @@ MonoBehaviour:
   mobilePoseLerpSpeed: 12
   mobileSwipeSpeed: 900
   mobileSwingPoseTolerance: 4
+  pcAttackGoalThreshold: 0.001
+  pcAttackSpeedPerMouseUnit: 1.25
+  pcAttackMaximumSpeed: 3
+  pcAttackEntryGrace: 0.15
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
   canSwing: 10
   health: 10

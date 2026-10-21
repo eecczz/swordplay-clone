@@ -13,7 +13,7 @@ public sealed class ArenaGameDirector : MonoBehaviour
     [Header("Arena pool")]
     [SerializeField] private PlayerWorker player;
     [SerializeField] private List<EnemyWorker> enemyPool = new();
-    [SerializeField, Range(1, 10)] private int initialActiveEnemies = 5;
+    [SerializeField, Range(0, 10)] private int initialActiveEnemies = 5;
     [SerializeField, Min(0.05f)] private float entranceInterval = 0.32f;
     [SerializeField, Min(0.2f)] private float recycleDelay = 1.25f;
 

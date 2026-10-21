@@ -2,8 +2,7 @@ Shader "Swordplay/Sword Slash Ribbon"
 {
     Properties
     {
-        _MainTex("Slashing Bump", 2D) = "white" {}
-        _MaskTex("Oval Mask", 2D) = "white" {}
+        _MainTex("Multi-Arc Trail Mask", 2D) = "white" {}
         [HDR] _GlowColor("Glow Color", Color) = (0.15,1.1,2,0.9)
         _Intensity("Intensity", Range(0,3)) = 1.1
         _MotionPhase("Motion Phase", Float) = 0
@@ -25,10 +24,8 @@ Shader "Swordplay/Sword Slash Ribbon"
             #pragma fragment Frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
-            TEXTURE2D(_MaskTex); SAMPLER(sampler_MaskTex);
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
-                float4 _MaskTex_ST;
                 half4 _GlowColor;
                 half _Intensity;
                 half _MotionPhase;
@@ -47,15 +44,21 @@ Shader "Swordplay/Sword Slash Ribbon"
             {
                 half across = saturate(input.uv.x);
                 half age = saturate(input.uv.y);
-                half oval = SAMPLE_TEXTURE2D(_MaskTex, sampler_MaskTex, half2(across, 0.5h)).r;
-                half3 fire = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex,
-                    half2(across * 1.35h, age * 1.8h - _MotionPhase)).rgb;
+                // Crop the transparent generation padding so the connected base reaches
+                // the blade and the four tips use the full authored ribbon width.
+                half2 trailUv = half2(lerp(0.20h, 0.95h, across),
+                    lerp(0.02h, 0.98h, age));
+                half4 slashMask = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, trailUv);
                 half taper = pow(saturate(1.0h - age), 0.7h);
                 half tip = 1.0h - smoothstep(0.82h, 1.0h, age);
-                half textureLight = saturate(max(fire.r, max(fire.g, fire.b)) * 1.35h);
-                half alpha = oval * taper * tip * input.color.a * _GlowColor.a;
+                // The generated monochrome texture owns both the broad leading mass and
+                // the transparent cuts that separate it into several pointed ribbons.
+                half shape = saturate(max(slashMask.a,
+                    max(slashMask.r, max(slashMask.g, slashMask.b))));
+                half alpha = shape * taper * tip * input.color.a * _GlowColor.a;
                 clip(alpha - 0.015h);
-                half brightness = 0.75h + textureLight * 0.65h;
+                half flowHighlight = 0.9h + 0.1h * sin((age - _MotionPhase) * 12.0h);
+                half brightness = (0.9h + shape * 0.35h) * flowHighlight;
                 return half4(_GlowColor.rgb * _Intensity * brightness, alpha);
             }
             ENDHLSL

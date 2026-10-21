@@ -27,11 +27,24 @@ public class PlayerWorker : MonoBehaviour
     [SerializeField, Min(0.1f)] private float mobilePoseLerpSpeed = 12f;
     [SerializeField, Min(50f)] private float mobileSwipeSpeed = 900f;
     [SerializeField, Min(0.1f)] private float mobileSwingPoseTolerance = 4f;
+    [Header("PC progress-driven attack")]
+    [SerializeField, Range(0f, 90f)] private float pcAttackDirectionTolerance = 30f;
+    [Tooltip("Caps inverse-calculated playback speed while preserving unconsumed mouse travel.")]
+    [SerializeField, Min(0.1f)] private float pcAttackMaximumSpeed = 3f;
+    [SerializeField, Min(0.02f)] private float pcAttackEntryGrace = 0.15f;
     private Vector2 mobileTargetPose;
     private bool mobilePoseInitialized;
     private bool queuedMobileSwing;
     private Vector2 previousMobileMousePosition;
     private bool mobileMouseDragging;
+    private bool pcProgressAttackActive;
+    private float pcAttackEntryGraceTimer;
+    private Vector2 pcAttackAccumulatedPoseDelta;
+    private float pcAttackRequiredPoseTravel;
+    private float pcAttackPendingPoseTravel;
+    private bool pcAttackAnimatorStarted;
+    private float pcAttackBodyStateLength;
+    private float pcAttackUpperStateLength;
     private bool arenaGameplayEnabled = true;
     private float telegraphedGuardTimer;
     private EnemyWorker telegraphedAttacker;
@@ -65,6 +78,7 @@ public class PlayerWorker : MonoBehaviour
     private float verticalVelocity;
     private Vector2 attackDirection;
     private int attackSequence;
+    private int interruptedAttackSequence = -1;
     [Header("Attack reaction window")]
     [SerializeField, Range(0f, 0.5f)] private float attackSlowTrigger = 0.1f;
     [SerializeField, Range(0.001f, 0.2f)] private float attackSlowSpeed = 0.01f;
@@ -153,7 +167,8 @@ public class PlayerWorker : MonoBehaviour
     public Vector2 GuardDirection => new(tx, ty);
     public Transform SwordTransform => sword;
     public int AttackSequence => attackSequence;
-    public bool IsAttackHitActive => health > -1 && attackSequence > 0 && attackSlowTriggered
+    public bool IsAttackHitActive => health > -1 && attackSequence > 0
+        && attackSequence != interruptedAttackSequence && attackSlowTriggered
         && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
     public bool IsHoldingAttackSlowOn(EnemyWorker target)
     {
@@ -163,6 +178,8 @@ public class PlayerWorker : MonoBehaviour
                && attackSlowTimer > 0f;
     }
     public bool UsesMobileInput => inputMode == InputMode.Mobile;
+    protected virtual bool UsesProgressDrivenPcAttack => false;
+    protected virtual bool UsesAttackSlowdown => true;
     public void SetSensitivity(float value) => sensitivity = Mathf.Max(0.1f, value);
     public void SetArenaGameplayEnabled(bool value)
     {
@@ -185,7 +202,7 @@ public class PlayerWorker : MonoBehaviour
      add sword, fit the position, add lh target and fitting, apply Hitter's target reference
      hand ik enable and let left arm to follow lh target
      add components, legs animator - ik hint mode -> onGoal*/
-    private void Awake()
+    protected void Awake()
     {
         player = transform;
         Time.timeScale = 1.0f;
@@ -319,7 +336,7 @@ public class PlayerWorker : MonoBehaviour
         return false;
     }
 
-    private void Update()
+    protected void Update()
     {
         // The launch menu pauses gameplay without disabling this component. Disabling and
         // re-enabling the whole worker changes Animation Rigging evaluation order and can
@@ -327,7 +344,8 @@ public class PlayerWorker : MonoBehaviour
         if (!arenaGameplayEnabled)
             return;
 
-        UpdateAttackSlowdown();
+        if (UsesAttackSlowdown)
+            UpdateAttackSlowdown();
         UpdateHurtLayerSuppression();
         UpdateReactionTransparency();
         movementInput = Vector2.zero;
@@ -337,14 +355,20 @@ public class PlayerWorker : MonoBehaviour
             anim.SetFloat("tx", tx);
             anim.SetFloat("ty", ty);
         }
+        bool progressDrivenPcAttack = inputMode == InputMode.PC && UsesProgressDrivenPcAttack;
         Vector2 pcPoseInput = Vector2.zero;
         if (inputMode == InputMode.Mobile)
             UpdateMobileInput();
         else
         {
             pcPoseInput = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
-            tx += pcPoseInput.x * sensitivity;
-            ty += pcPoseInput.y * sensitivity;
+            // The attack blend position is selected before entering Attack and must remain
+            // fixed while mouse movement drives only that motion's playback progress.
+            if (!progressDrivenPcAttack
+                || (!pcProgressAttackActive && !Input.GetMouseButton(0)))
+            {
+                ApplyPcPoseDelta(pcPoseInput * sensitivity);
+            }
         }
         tx = Mathf.Clamp(tx, -180, 180);
         ty = Mathf.Clamp(ty, -30, 150);
@@ -433,7 +457,20 @@ public class PlayerWorker : MonoBehaviour
         bool targetHasReachedSlot = combatTarget != null && combatTarget.HasReachedFormationSlot;
         if (inputMode == InputMode.Mobile && wantsSwing && !targetHasReachedSlot)
             queuedMobileSwing = false;
-        if (health > -1 && targetHasReachedSlot && attackPoseOutsideCenter && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted") && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded") && wantsSwing && mobilePoseReady && guard == 0 && swing == 0 && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+        // The mouse-driven animation test must also work with no active enemy and must
+        // not depend on formation navigation. The regular/mobile worker keeps the
+        // original target-slot requirement.
+        bool targetReadyForAttack = progressDrivenPcAttack || targetHasReachedSlot;
+        bool canBeginAttack = health > -1 && targetReadyForAttack && attackPoseOutsideCenter
+            && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted")
+            && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded")
+            && guard == 0 && swing == 0
+            && !anim.GetCurrentAnimatorStateInfo(0).IsName("Attack");
+        if (progressDrivenPcAttack)
+        {
+            UpdateProgressDrivenPcAttack(pcPoseInput, canBeginAttack);
+        }
+        else if (canBeginAttack && wantsSwing && mobilePoseReady)
         {
             queuedMobileSwing = false;
             BeginAttack();
@@ -497,6 +534,240 @@ public class PlayerWorker : MonoBehaviour
         sources.SetWeight(0, 1f - w); // 오른손 영향
         sources.SetWeight(1, w);      // 왼손 영향
         weaponBlend.data.sourceObjects = sources;
+    }
+
+    private bool IsMouseMovingTowardAttackCenter(Vector2 mouseDelta)
+    {
+        Vector2 movement = mouseDelta * sensitivity;
+        Vector2 toCenter = new Vector2(0f, 75f) - new Vector2(tx, ty);
+        if (movement.sqrMagnitude <= 0.000001f || toCenter.sqrMagnitude <= 0.000001f)
+            return false;
+        return Vector2.Angle(toCenter, movement) <= pcAttackDirectionTolerance;
+    }
+
+    private void UpdateProgressDrivenPcAttack(Vector2 mouseDelta, bool canBeginAttack)
+    {
+        float mouseSpeed = mouseDelta.magnitude;
+        bool holdingAttack = Input.GetMouseButton(0);
+        bool hasMouseMotion = mouseSpeed > 0.0001f;
+        bool validAttackDirection = hasMouseMotion
+            && IsMouseMovingTowardAttackCenter(mouseDelta);
+        bool positiveMotion = holdingAttack && validAttackDirection;
+
+        if (!pcProgressAttackActive)
+        {
+            SetProgressAttackSpeeds(0f, 0f);
+            if (!canBeginAttack || !positiveMotion)
+            {
+                // LMB input was deferred until we knew whether it started an attack.
+                // When it did not, it remains ordinary pose input.
+                ApplyPcPoseDelta(mouseDelta * sensitivity);
+                return;
+            }
+
+            BeginAttack();
+            pcProgressAttackActive = true;
+            pcAttackAccumulatedPoseDelta = mouseDelta * sensitivity;
+            pcAttackRequiredPoseTravel = Mathf.Max(0.001f,
+                Vector2.Distance(new Vector2(tx, ty), new Vector2(0f, 75f)) * 2f);
+            pcAttackPendingPoseTravel = mouseDelta.magnitude * sensitivity;
+            pcAttackAnimatorStarted = false;
+            pcAttackBodyStateLength = 0f;
+            pcAttackUpperStateLength = 0f;
+            pcAttackEntryGraceTimer = pcAttackEntryGrace;
+            // Wait one Animator evaluation so the current BlendTree duration is valid.
+            // This frame's mouse distance is retained in pcAttackPendingPoseTravel.
+            SetProgressAttackSpeeds(0f, 0f);
+            return;
+        }
+
+        // Keep the attack BlendTree coordinates fixed, but retain every mouse delta
+        // (including the delta that ends the attack) for one application on exit.
+        pcAttackAccumulatedPoseDelta += mouseDelta * sensitivity;
+        pcAttackPendingPoseTravel += mouseDelta.magnitude * sensitivity;
+
+        if (!holdingAttack || health < 0 || guard != 0
+            || (hasMouseMotion && !validAttackDirection))
+        {
+            EndProgressDrivenPcAttack(false);
+            return;
+        }
+
+        bool bodyReady = TryGetAttackStateInfo(0, out AnimatorStateInfo bodyAttackState,
+            out bool bodyUsesNextState);
+        AnimatorStateInfo upperAttackState = default;
+        bool upperUsesNextState = false;
+        bool upperReady = anim.layerCount <= 1
+            || TryGetAttackStateInfo(1, out upperAttackState, out upperUsesNextState);
+        if (!bodyReady || !upperReady)
+        {
+            if (pcAttackAnimatorStarted)
+            {
+                EndProgressDrivenPcAttack(true);
+                return;
+            }
+            pcAttackEntryGraceTimer -= Time.unscaledDeltaTime;
+            if (pcAttackEntryGraceTimer <= 0f)
+                EndProgressDrivenPcAttack(false);
+            return;
+        }
+
+        if (!pcAttackAnimatorStarted)
+        {
+            pcAttackBodyStateLength = GetStableAttackBlendLength(
+                0, bodyUsesNextState, bodyAttackState.length);
+            pcAttackUpperStateLength = anim.layerCount > 1
+                ? GetStableAttackBlendLength(1, upperUsesNextState, upperAttackState.length)
+                : pcAttackBodyStateLength;
+            pcAttackAnimatorStarted = true;
+        }
+        pcAttackEntryGraceTimer = pcAttackEntryGrace;
+        float bodyTime = bodyAttackState.normalizedTime;
+        float upperTime = anim.layerCount > 1
+            ? upperAttackState.normalizedTime
+            : bodyTime;
+        if (bodyTime >= 1f || upperTime >= 1f)
+        {
+            EndProgressDrivenPcAttack(true);
+            return;
+        }
+
+        if (pcAttackPendingPoseTravel <= 0.0001f)
+        {
+            // Pausing the mouse pauses the attack at its current time; it does not
+            // cancel the state while LMB remains held.
+            SetProgressAttackSpeeds(0f, 0f);
+            return;
+        }
+
+        float requestedNormalizedDelta = pcAttackPendingPoseTravel
+            / pcAttackRequiredPoseTravel;
+        float remainingNormalizedTime = Mathf.Min(
+            1f - bodyTime,
+            1f - upperTime);
+        if (remainingNormalizedTime <= 0.00001f)
+        {
+            EndProgressDrivenPcAttack(true);
+            return;
+        }
+        float animatorScale = Mathf.Max(0.001f, anim.speed);
+        float deltaTime = Time.deltaTime;
+        if (deltaTime <= 0.00001f)
+        {
+            SetProgressAttackSpeeds(0f, 0f);
+            return;
+        }
+
+        float bodySpeedCapacity = pcAttackMaximumSpeed * deltaTime * animatorScale
+            / pcAttackBodyStateLength;
+        float upperSpeedCapacity = pcAttackMaximumSpeed * deltaTime * animatorScale
+            / pcAttackUpperStateLength;
+        float speedCapacity = Mathf.Min(bodySpeedCapacity, upperSpeedCapacity);
+        float appliedNormalizedDelta = Mathf.Min(
+            requestedNormalizedDelta, remainingNormalizedTime, speedCapacity);
+        if (appliedNormalizedDelta <= 0f)
+        {
+            SetProgressAttackSpeeds(0f, 0f);
+            return;
+        }
+
+        // speed = (mouse travel / required travel) * blended animation length / deltaTime
+        float bodyPlaybackSpeed = appliedNormalizedDelta * pcAttackBodyStateLength
+            / (deltaTime * animatorScale);
+        float upperPlaybackSpeed = appliedNormalizedDelta * pcAttackUpperStateLength
+            / (deltaTime * animatorScale);
+        SetProgressAttackSpeeds(bodyPlaybackSpeed, upperPlaybackSpeed);
+        pcAttackPendingPoseTravel = Mathf.Max(0f,
+            pcAttackPendingPoseTravel
+            - appliedNormalizedDelta * pcAttackRequiredPoseTravel);
+    }
+
+    private void SetProgressAttackSpeeds(float bodySpeed, float upperSpeed)
+    {
+        anim.SetFloat("speed", bodySpeed);
+        if (anim.layerCount > 1)
+            anim.SetFloat("upperSpeed", upperSpeed);
+    }
+
+    private float GetStableAttackBlendLength(int layerIndex, bool useNextState,
+        float fallbackLength)
+    {
+        AnimatorClipInfo[] clips = useNextState
+            ? anim.GetNextAnimatorClipInfo(layerIndex)
+            : anim.GetCurrentAnimatorClipInfo(layerIndex);
+        float weightedLength = 0f;
+        float totalWeight = 0f;
+        foreach (AnimatorClipInfo clipInfo in clips)
+        {
+            if (clipInfo.clip == null || clipInfo.weight <= 0f)
+                continue;
+            weightedLength += clipInfo.clip.length * clipInfo.weight;
+            totalWeight += clipInfo.weight;
+        }
+        return totalWeight > 0.0001f
+            ? Mathf.Max(0.001f, weightedLength / totalWeight)
+            : Mathf.Max(0.001f, fallbackLength);
+    }
+
+    private bool TryGetAttackStateInfo(int layerIndex, out AnimatorStateInfo attackState,
+        out bool usesNextState)
+    {
+        attackState = default;
+        usesNextState = false;
+        if (anim == null || !anim.isActiveAndEnabled || layerIndex >= anim.layerCount)
+            return false;
+        AnimatorStateInfo current = anim.GetCurrentAnimatorStateInfo(layerIndex);
+        if (current.IsName("Attack"))
+        {
+            attackState = current;
+            return true;
+        }
+        if (!anim.IsInTransition(layerIndex))
+            return false;
+        AnimatorStateInfo next = anim.GetNextAnimatorStateInfo(layerIndex);
+        if (!next.IsName("Attack"))
+            return false;
+        attackState = next;
+        usesNextState = true;
+        return true;
+    }
+
+    private void EndProgressDrivenPcAttack(bool completed)
+    {
+        if (!pcProgressAttackActive)
+            return;
+
+        pcProgressAttackActive = false;
+        ApplyPcPoseDelta(pcAttackAccumulatedPoseDelta);
+        pcAttackAccumulatedPoseDelta = Vector2.zero;
+        pcAttackRequiredPoseTravel = 0f;
+        pcAttackPendingPoseTravel = 0f;
+        pcAttackAnimatorStarted = false;
+        pcAttackBodyStateLength = 0f;
+        pcAttackUpperStateLength = 0f;
+        preScore = Vector2.Distance(new Vector2(0f, 60f), new Vector2(tx, ty));
+        pcAttackEntryGraceTimer = 0f;
+        SetProgressAttackSpeeds(0f, 0f);
+        anim.speed = 1f;
+        swing = 0;
+
+        if (!completed)
+            interruptedAttackSequence = attackSequence;
+        attackSlowTriggered = false;
+        restoringAttackSpeed = false;
+        attackSlowTimer = 0f;
+        slowedAttackTarget = null;
+        SetSwordDamageTriggersEnabled(true);
+
+        anim.CrossFade("Idle", 0f, 0);
+        if (anim.layerCount > 1)
+            anim.CrossFade("Idle", 0f, 1);
+    }
+
+    private static void ApplyPcPoseDelta(Vector2 delta)
+    {
+        tx = Mathf.Clamp(tx + delta.x, -180f, 180f);
+        ty = Mathf.Clamp(ty + delta.y, -30f, 150f);
     }
 
     private void UpdateMobileInput()
@@ -818,8 +1089,23 @@ public class PlayerWorker : MonoBehaviour
 
     private void ResolveAttackAtSlowEnd()
     {
-        if (slowedAttackTarget != null)
+        if (attackSequence != interruptedAttackSequence && slowedAttackTarget != null)
             slowedAttackTarget.ResolvePlayerAttackAtSlowEnd(this, attackSequence);
+    }
+
+    private void InterruptCurrentAttackByHit()
+    {
+        if (attackSequence <= 0 || !IsPlayerAttackSequenceActive())
+            return;
+
+        interruptedAttackSequence = attackSequence;
+        attackSlowTriggered = false;
+        restoringAttackSpeed = false;
+        attackSlowTimer = 0f;
+        slowedAttackTarget = null;
+        if (anim != null)
+            anim.speed = 1f;
+        SetSwordDamageTriggersEnabled(true);
     }
 
     private void SetSwordDamageTriggersEnabled(bool value)
@@ -964,7 +1250,7 @@ public class PlayerWorker : MonoBehaviour
             anim.CrossFade("Guarded", 0f, 0);
     }
 
-    private void FixedUpdate()
+    protected void FixedUpdate()
     {
         if (rootPhysicsKnockback)
         {
@@ -1341,6 +1627,20 @@ public class PlayerWorker : MonoBehaviour
         AssignCombatTarget(navigationTarget);
     }
 
+    public bool TryHandoffStalledFocusedEnemy(EnemyWorker stalledEnemy, EnemyWorker replacement)
+    {
+        if (stalledEnemy == null || replacement == null
+                || ent != stalledEnemy.gameObject
+                || !replacement.IsAvailableForCombatFocus)
+            return false;
+
+        navigationTarget = replacement.gameObject;
+        navigationTargetRefreshTimer = navigationTargetRefreshInterval;
+        holdingCombatDistance = false;
+        AssignCombatTarget(navigationTarget);
+        return ent == replacement.gameObject;
+    }
+
     private static bool IsValidNavigationTarget(GameObject candidate)
     {
         return candidate != null && candidate.activeInHierarchy && candidate.CompareTag("Enemy");
@@ -1432,7 +1732,7 @@ public class PlayerWorker : MonoBehaviour
     [SerializeField] TwoBoneIKConstraint rightArmIK;    // Rig_Hands
     [SerializeField] TwoBoneIKConstraint leftArmIK;     // Rig_Hands
 
-    private void Start()
+    protected void Start()
     {
         if (miiMotion)
         {
@@ -1442,7 +1742,7 @@ public class PlayerWorker : MonoBehaviour
             return;
         }
     }
-    private void LateUpdate()
+    protected void LateUpdate()
     {
         if (health > -1
             && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted")
@@ -1550,6 +1850,10 @@ public class PlayerWorker : MonoBehaviour
             ResolveTelegraphedAttack(attacker);
             if (!blocked)
             {
+                // A defender that is hit first loses its currently pending forced attack.
+                // The explicit sequence marker avoids same-frame Animator update ordering
+                // from allowing that interrupted attack to resolve after its slow window.
+                InterruptCurrentAttackByHit();
                 if (health > 0)
                 {
                     health--;
@@ -1695,13 +1999,15 @@ public class PlayerWorker : MonoBehaviour
         Swordplay.UI.MedievalCursorController.ShowMenuCursor();
     }
 
-    private void OnDisable()
+    protected void OnDisable()
     {
+        if (pcProgressAttackActive)
+            EndProgressDrivenPcAttack(false);
         RestoreReactionVisualMaterials();
         EnemyWorker.RestoreAllVisuals();
     }
 
-    private void OnApplicationQuit()
+    protected void OnApplicationQuit()
     {
         RestoreReactionVisualMaterials();
         EnemyWorker.RestoreAllVisuals();

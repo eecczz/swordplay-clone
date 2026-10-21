@@ -29,6 +29,7 @@ public class EnemyWorker : MonoBehaviour
     private float tx, ty, rtx, rty;
     private Vector2 attackDirection;
     private int attackSequence;
+    private int interruptedAttackSequence = -1;
     [Header("Attack hit detection")]
     [SerializeField, Range(0f, 1f)] private float attackHitStart = 0f;
     [SerializeField, Range(0f, 1.2f)] private float attackHitEnd = 1.05f;
@@ -103,6 +104,8 @@ public class EnemyWorker : MonoBehaviour
     private bool useDirectPursuit;
     private Vector3 previousNavPosition;
     private float navStuckTimer;
+    private float formationPathFailureTimer;
+    private float offNavMeshRecoveryTimer;
     private Vector3 lastRequestedSlot;
     private bool hasRequestedSlot;
     private NavMeshPath slotPathProbe;
@@ -118,6 +121,15 @@ public class EnemyWorker : MonoBehaviour
     private FormationRouteStage formationRouteStage = FormationRouteStage.ExitToOuterRing;
     private int routedSlot = -1;
     private int formationOrbitDirection = 1;
+    [Header("Focused slot recovery")]
+    [Tooltip("If the focused enemy cannot recover its slot after this time, focus passes to an adjacent occupied slot.")]
+    [SerializeField, Min(1f)] private float focusedSlotRecoveryTimeout = 5f;
+    [Tooltip("Lower NavMesh avoidance values have higher priority.")]
+    [SerializeField, Range(0, 99)] private int focusedRecoveryAvoidancePriority = 5;
+    [SerializeField, Min(0.25f)] private float navMeshRecoverySampleRadius = 1.5f;
+    private float focusedSlotRecoveryTimer;
+    private int authoredAvoidancePriority = 50;
+    private bool avoidancePriorityCaptured;
     [SerializeField, Min(0.2f)] private float knockbackMaxTime = 1.5f;
     [SerializeField, Min(0.01f)] private float knockbackStopSpeed = 0.15f;
     [SerializeField, Min(0.5f)] private float knockbackDistance = 5f;
@@ -163,7 +175,8 @@ public class EnemyWorker : MonoBehaviour
     public Vector2 GuardDirection => new(tx, ty);
     public Transform SwordTransform => sword;
     public int AttackSequence => attackSequence;
-    public bool IsAttackHitActive => health > -1 && attackSequence > 0 && attackSlowTriggered
+    public bool IsAttackHitActive => health > -1 && attackSequence > 0
+        && attackSequence != interruptedAttackSequence && attackSlowTriggered
         && CombatDirectionUtility.IsAttackStateActive(anim, attackHitStart, attackHitEnd);
     public bool IsAlive => health > -1 && gameObject.activeInHierarchy;
     public bool HasReachedFormationSlot => IsAlive && HasReachedAssignedSlot();
@@ -197,6 +210,9 @@ public class EnemyWorker : MonoBehaviour
         ResetFormationRoute();
         arrivalTrackedSlot = -1;
         slotArrivalLatched = false;
+        focusedSlotRecoveryTimer = 0f;
+        formationPathFailureTimer = 0f;
+        offNavMeshRecoveryTimer = 0f;
         if (focusTransparencyActive)
             SetVisualDimmed(PlayerWorker.ent == null
                             || PlayerWorker.ent != gameObject
@@ -205,6 +221,7 @@ public class EnemyWorker : MonoBehaviour
 
     private void OnDisable()
     {
+        RestoreAuthoredAvoidancePriority();
         SetSwordDamageTriggersEnabled(true);
         ResetTransientCombatState();
         RestoreOriginalVisualMaterials();
@@ -299,6 +316,11 @@ public class EnemyWorker : MonoBehaviour
         guardTimer = -1f;
 
         nav = ResolveRootAgent();
+        if (nav != null)
+        {
+            authoredAvoidancePriority = nav.avoidancePriority;
+            avoidancePriorityCaptured = true;
+        }
         hitVFX = Resources.Load<GameObject>("Prefab/BrokenEdgeHitVFX");
         shieldVFX = Resources.Load<GameObject>("Prefab/BrokenEdgeGuardVFX");
         audioSource = GetComponent<AudioSource>();
@@ -450,6 +472,7 @@ public class EnemyWorker : MonoBehaviour
         }
 
         UpdateNavigation(dt);
+        UpdateFocusedSlotRecoveryWatchdog();
 
         // The focused enemy only becomes fully opaque after actually reaching its assigned
         // formation position. If it is displaced again, dim it until the slot is recovered.
@@ -714,6 +737,20 @@ public class EnemyWorker : MonoBehaviour
         }
     }
 
+    private void InterruptCurrentAttackByHit()
+    {
+        if (attackSequence <= 0 || !IsPerformingAttackSequence(attackSequence))
+            return;
+
+        interruptedAttackSequence = attackSequence;
+        attackSlowTriggered = false;
+        restoringAttackSpeed = false;
+        attackSlowTimer = 0f;
+        if (anim != null)
+            anim.speed = 1f;
+        SetSwordDamageTriggersEnabled(true);
+    }
+
 
     private void SetSwordDamageTriggersEnabled(bool value)
     {
@@ -946,6 +983,10 @@ public class EnemyWorker : MonoBehaviour
         attackSlowTimer = 0f;
         verticalVelocity = 0f;
         navStuckTimer = 0f;
+        formationPathFailureTimer = 0f;
+        offNavMeshRecoveryTimer = 0f;
+        focusedSlotRecoveryTimer = 0f;
+        RestoreAuthoredAvoidancePriority();
         SetSwordDamageTriggersEnabled(true);
 
         if (anim != null)
@@ -1212,6 +1253,69 @@ public class EnemyWorker : MonoBehaviour
         hasReachableSlotPosition = false;
         reachableSlotIndex = -1;
         destinationRefreshTimer = 0f;
+        formationPathFailureTimer = 0f;
+    }
+
+    private void BeginDirectSlotRecoveryAfterKnockback()
+    {
+        ResetFormationRoute();
+        int slot = GetAssignedSlot();
+        if (slot < 0)
+            return;
+
+        // Knockback normally moves the enemy radially away from the player. Returning
+        // directly to its own now-empty slot is shorter and avoids an unnecessary orbit.
+        routedSlot = slot;
+        formationRouteStage = FormationRouteStage.EnterAssignedSlot;
+    }
+
+    private void UpdateFocusedSlotRecoveryWatchdog()
+    {
+        bool focused = health > -1 && PlayerWorker.ent == gameObject;
+        if (!focused || physicsReaction)
+        {
+            focusedSlotRecoveryTimer = 0f;
+            RestoreAuthoredAvoidancePriority();
+            return;
+        }
+
+        if (HasReachedAssignedSlot())
+        {
+            focusedSlotRecoveryTimer = 0f;
+            RestoreAuthoredAvoidancePriority();
+            return;
+        }
+
+        if (nav != null && avoidancePriorityCaptured)
+            nav.avoidancePriority = Mathf.Min(authoredAvoidancePriority,
+                focusedRecoveryAvoidancePriority);
+
+        focusedSlotRecoveryTimer += Time.unscaledDeltaTime;
+        if (focusedSlotRecoveryTimer < focusedSlotRecoveryTimeout)
+            return;
+
+        int slot = GetAssignedSlot();
+        EnemyWorker replacement = FindLivingEnemyAdjacentToSlot(slot, this);
+        if (playerWorker == null && PlayerWorker.player != null)
+            playerWorker = PlayerWorker.player.GetComponent<PlayerWorker>();
+
+        if (replacement != null && playerWorker != null
+                && playerWorker.TryHandoffStalledFocusedEnemy(this, replacement))
+        {
+            focusedSlotRecoveryTimer = 0f;
+            RestoreAuthoredAvoidancePriority();
+            return;
+        }
+
+        // No adjacent enemy is ready yet. Retry soon without firing every frame.
+        focusedSlotRecoveryTimer = Mathf.Max(0f, focusedSlotRecoveryTimeout - 1f);
+    }
+
+    private void RestoreAuthoredAvoidancePriority()
+    {
+        if (nav != null && avoidancePriorityCaptured
+                && nav.avoidancePriority != authoredAvoidancePriority)
+            nav.avoidancePriority = authoredAvoidancePriority;
     }
 
     private Vector3 CalculateFormationRouteDestination(int slot, out bool finalLeg)
@@ -1325,9 +1429,21 @@ public class EnemyWorker : MonoBehaviour
         Vector3 routeDestination = CalculateFormationRouteDestination(assignedSlot, out bool finalRouteLeg);
         if (!nav.isOnNavMesh)
         {
+            offNavMeshRecoveryTimer -= deltaTime;
+            if (offNavMeshRecoveryTimer <= 0f)
+            {
+                offNavMeshRecoveryTimer = 0.25f;
+                if (TryRecoverAgentOntoNavMesh(transform.position, false))
+                {
+                    BeginDirectSlotRecoveryAfterKnockback();
+                    previousNavPosition = transform.position;
+                    return;
+                }
+            }
             MoveTowardWithoutNavMesh(routeDestination, deltaTime);
             return;
         }
+        offNavMeshRecoveryTimer = 0f;
 
         // Reaching a slot is not a permanent stop. The formation follows the player's
         // position, so any meaningful slot displacement immediately invalidates the stop.
@@ -1356,12 +1472,19 @@ public class EnemyWorker : MonoBehaviour
             useDirectPursuit = false;
             bool pathAssigned = TrySetReachableFormationDestination(routeDestination, finalRouteLeg, false)
                 || TrySetReachableFormationDestination(routeDestination, finalRouteLeg, true);
-            if (!pathAssigned)
+            if (pathAssigned)
+            {
+                formationPathFailureTimer = 0f;
+            }
+            else
             {
                 // Never drive directly through level geometry when a path is unavailable.
                 // A fresh partial/complete path will be requested on the next refresh.
                 nav.ResetPath();
                 useDirectPursuit = false;
+                formationPathFailureTimer += Mathf.Max(destinationRefreshInterval, deltaTime);
+                if (formationPathFailureTimer >= 0.75f)
+                    ResetFormationRoute();
             }
         }
 
@@ -1420,6 +1543,33 @@ public class EnemyWorker : MonoBehaviour
         nav.ResetPath();
         destinationRefreshTimer = 0f;
         ResetFormationRoute();
+    }
+
+    private bool TryRecoverAgentOntoNavMesh(Vector3 desiredPosition, bool backtrackKnockback)
+    {
+        if (nav == null || !nav.enabled)
+            return false;
+
+        float radius = Mathf.Max(0.25f, navMeshRecoverySampleRadius);
+        int steps = backtrackKnockback ? 8 : 1;
+        for (int step = 0; step < steps; step++)
+        {
+            float t = steps <= 1 ? 0f : step / (float)(steps - 1);
+            Vector3 probe = Vector3.Lerp(desiredPosition, knockbackStartPosition, t);
+            if (!NavMesh.SamplePosition(probe, out NavMeshHit hit, radius, nav.areaMask))
+                continue;
+
+            if (!nav.Warp(hit.position))
+                continue;
+
+            transform.position = hit.position;
+            if (rigid != null)
+                rigid.position = hit.position;
+            nav.updatePosition = true;
+            nav.isStopped = false;
+            return true;
+        }
+        return false;
     }
 
     private void MoveTowardWithoutNavMesh(Vector3 target, float deltaTime)
@@ -1586,11 +1736,11 @@ public class EnemyWorker : MonoBehaviour
         bool timeout = physicsReactionTimer >= knockbackMaxTime;
         if (!reachedDistance && !settled && !timeout) return;
 
+        Vector3 settledPosition = rigid.position;
         if (reachedDistance)
         {
-            Vector3 clamped = knockbackStartPosition + knockbackDirection * knockbackDistance;
-            clamped.y = rigid.position.y;
-            rigid.position = clamped;
+            settledPosition = knockbackStartPosition + knockbackDirection * knockbackDistance;
+            settledPosition.y = rigid.position.y;
         }
         rigid.linearVelocity = Vector3.zero;
         rigid.angularVelocity = Vector3.zero;
@@ -1603,8 +1753,17 @@ public class EnemyWorker : MonoBehaviour
         physicsReaction = false;
         nav.enabled = true;
         nav.updatePosition = true;
-        if (nav.isOnNavMesh)
+        bool recoveredToNavMesh = TryRecoverAgentOntoNavMesh(settledPosition, true);
+        if (recoveredToNavMesh && nav.isOnNavMesh)
             nav.isStopped = false;
+        else
+        {
+            transform.position = settledPosition;
+            rigid.position = settledPosition;
+        }
+        previousNavPosition = transform.position;
+        navStuckTimer = 0f;
+        BeginDirectSlotRecoveryAfterKnockback();
         destinationRefreshTimer = 0f;
     }
 
@@ -1711,6 +1870,9 @@ public class EnemyWorker : MonoBehaviour
                            && CombatDirectionUtility.CanBlock(attacker.SwordTransform, sword);
             if (!blocked)
             {
+                // Being hit first invalidates this enemy's pending forced attack even if
+                // Animator still reports Attack until its next evaluation.
+                InterruptCurrentAttackByHit();
                 if (health > 0)
                 {
                     health--;
@@ -1862,6 +2024,7 @@ public class EnemyWorker : MonoBehaviour
         coolTimer = GetActionCooldown();
         guardTimer = -1f;
         attackSequence = 0;
+        interruptedAttackSequence = -1;
         resolvedPlayerAttackSequence = -1;
         gameObject.tag = "Enemy";
         if (anim != null)
