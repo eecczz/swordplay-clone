@@ -642,9 +642,13 @@ public class PlayerWorker : MonoBehaviour
 
         float requestedNormalizedDelta = pcAttackPendingPoseTravel
             / pcAttackRequiredPoseTravel;
+        // Stop before the controller's 0.999 exit threshold. On the following Update,
+        // EndProgressDrivenPcAttack applies the accumulated pose and enters Idle before
+        // Animator can evaluate either the looping frame zero or Idle with stale tx/ty.
+        const float safeAttackEndTime = 0.99f;
         float remainingNormalizedTime = Mathf.Min(
-            1f - bodyTime,
-            1f - upperTime);
+            safeAttackEndTime - bodyTime,
+            safeAttackEndTime - upperTime);
         if (remainingNormalizedTime <= 0.00001f)
         {
             EndProgressDrivenPcAttack(true);
@@ -739,6 +743,10 @@ public class PlayerWorker : MonoBehaviour
 
         pcProgressAttackActive = false;
         ApplyPcPoseDelta(pcAttackAccumulatedPoseDelta);
+        // Animator parameters were deliberately frozen during Attack. Update them now,
+        // in the same frame and before entering Idle, so the old pose cannot flash once.
+        anim.SetFloat("tx", tx);
+        anim.SetFloat("ty", ty);
         pcAttackAccumulatedPoseDelta = Vector2.zero;
         pcAttackRequiredPoseTravel = 0f;
         pcAttackPendingPoseTravel = 0f;
