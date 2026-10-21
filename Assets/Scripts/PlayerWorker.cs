@@ -446,8 +446,9 @@ public class PlayerWorker : MonoBehaviour
         float curScore = (new Vector3(0, 60) - new Vector3(tx, ty)).magnitude;
         float goalScore = preScore - curScore;
         float testScore = (new Vector3(0, 0) - new Vector3(tx, ty)).magnitude;
-        bool attackPoseOutsideCenter = CombatDirectionUtility.IsOutsideCenterAttackSector(
-            new Vector2(tx, ty));
+        // Temporarily allow attacks to start from the center sector too.
+        // bool attackPoseOutsideCenter = CombatDirectionUtility.IsOutsideCenterAttackSector(
+        //     new Vector2(tx, ty));
 
         anim.SetFloat("time", 1 - testScore / 180);
         preScore = curScore;
@@ -461,7 +462,7 @@ public class PlayerWorker : MonoBehaviour
         // not depend on formation navigation. The regular/mobile worker keeps the
         // original target-slot requirement.
         bool targetReadyForAttack = progressDrivenPcAttack || targetHasReachedSlot;
-        bool canBeginAttack = health > -1 && targetReadyForAttack && attackPoseOutsideCenter
+        bool canBeginAttack = health > -1 && targetReadyForAttack
             && !anim.GetCurrentAnimatorStateInfo(0).IsName("Hurted")
             && !anim.GetCurrentAnimatorStateInfo(0).IsName("Guarded")
             && guard == 0 && swing == 0
@@ -539,7 +540,7 @@ public class PlayerWorker : MonoBehaviour
     private bool IsMouseMovingTowardAttackCenter(Vector2 mouseDelta)
     {
         Vector2 movement = mouseDelta * sensitivity;
-        Vector2 toCenter = new Vector2(0f, 75f) - new Vector2(tx, ty);
+        Vector2 toCenter = Vector2.zero - new Vector2(tx, ty);
         if (movement.sqrMagnitude <= 0.000001f || toCenter.sqrMagnitude <= 0.000001f)
             return false;
         return Vector2.Angle(toCenter, movement) <= pcAttackDirectionTolerance;
