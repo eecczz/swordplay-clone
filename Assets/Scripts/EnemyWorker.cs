@@ -36,6 +36,10 @@ public class EnemyWorker : MonoBehaviour
     [Header("Sword slash VFX")]
     [Tooltip("Length of the motion-synced slash ribbon, measured in blade lengths.")]
     [SerializeField, Min(0.25f)] private float swordSlashTravelInBladeLengths = 2.25f;
+    [Tooltip("Time Based fades while the sword is still. Motion Distance freezes with the animation.")]
+    [SerializeField] private Swordplay.Visuals.SwordSlashTrailAgingMode swordSlashAgingMode =
+        Swordplay.Visuals.SwordSlashTrailAgingMode.MotionDistance;
+    [SerializeField, Min(0.02f)] private float swordSlashTimeBasedLifetime = 0.25f;
     [SerializeField, Range(0.25f, 1.5f)] private float swordSlashBladeWidth = 1f;
     [SerializeField, Range(0.1f, 2f)] private float swordSlashIntensity = 1.1f;
     [SerializeField, Range(0f, 1f)] private float swordSlashTextureFlow = 0.16f;
@@ -75,6 +79,7 @@ public class EnemyWorker : MonoBehaviour
     [SerializeField, Range(0.001f, 0.5f)] private float minimumPoseLerp = 0.01f;
     [SerializeField, Range(0.01f, 0.5f)] private float maximumPoseLerp = 0.5f;
     [SerializeField] private int health = 2;
+    private int startingHealth;
     [Header("Attack reaction window")]
     [SerializeField, Range(0f, 0.5f)] private float attackSlowTrigger = 0.1f;
     [SerializeField, Range(0.001f, 0.2f)] private float attackSlowSpeed = 0.01f;
@@ -238,6 +243,7 @@ public class EnemyWorker : MonoBehaviour
 
     private void Awake()
     {
+        startingHealth = health;
         slotPathProbe = new NavMeshPath();
         anim = GetComponent<Animator>();
         if (anim != null)
@@ -357,6 +363,7 @@ public class EnemyWorker : MonoBehaviour
         if (slashSword != null)
             Swordplay.Visuals.SwordSlashVfxSynchronizer.Configure(
                 slashSword, anim, swordSlashTravelInBladeLengths,
+                swordSlashAgingMode, swordSlashTimeBasedLifetime,
                 swordSlashBladeWidth, swordSlashIntensity, swordSlashTextureFlow,
                 swordSlashUseWeaponEffectColor, swordSlashColor, swordSlashMaterialOverride);
         rig = GetComponentInChildren<Rig>();
@@ -488,14 +495,15 @@ public class EnemyWorker : MonoBehaviour
 
         if (playerWorker == null && PlayerWorker.player != null)
             playerWorker = PlayerWorker.player.GetComponent<PlayerWorker>();
-        bool poseLockedByPlayerSlow = playerWorker != null
-                                      && playerWorker.IsHoldingAttackSlowOn(this);
         bool playerLocksActionStart = playerWorker != null
                                       && playerWorker.LocksEnemyActionStart;
+        bool poseLockedByPlayerAttack = playerWorker != null
+                                        && (playerWorker.IsHoldingAttackSlowOn(this)
+                                            || (guard == 1 && playerLocksActionStart));
 
-        // Pause both interpolation and target rerolls while this enemy is the target of the
-        // player's attack slowdown. Keeping rtx/rty intact lets the old motion resume cleanly.
-        if (!poseLockedByPlayerSlow)
+        // A guarding enemy holds its current blade pose for the whole player attack.
+        // Keeping rtx/rty intact lets ordinary pose tracking resume after the exchange.
+        if (!poseLockedByPlayerAttack)
         {
             // -------- cool1: 조준 보정 타이머(초) --------
             if (cool1Timer > 0f)
@@ -675,8 +683,8 @@ public class EnemyWorker : MonoBehaviour
         attackSlowTimer = 0f;
         SetSwordDamageTriggersEnabled(true);
         anim.speed = 1f;
-        anim.CrossFade("Attack", 0f, 0);
-        anim.CrossFade("Attack", 0f, 1);
+        anim.ResetTrigger("EnterAttack");
+        anim.SetTrigger("EnterAttack");
         swing = 1;
     }
 
@@ -1867,15 +1875,18 @@ public class EnemyWorker : MonoBehaviour
         {
             resolvedPlayerAttackSequence = sourceAttackSequence;
             bool blocked = guard == 1
-                           && CombatDirectionUtility.CanBlock(attacker.SwordTransform, sword);
+                           && CombatDirectionUtility.HasDifferentHorizontalSign(
+                               attacker.AttackDirection.x, GuardDirection.x)
+                           && CombatDirectionUtility.CanBlock(
+                               attacker.AttackMouseDirection, sword);
             if (!blocked)
             {
                 // Being hit first invalidates this enemy's pending forced attack even if
                 // Animator still reports Attack until its next evaluation.
                 InterruptCurrentAttackByHit();
+                health = Mathf.Max(0, health - 1);
                 if (health > 0)
                 {
-                    health--;
                     Vector3 hitpoint = Quaternion.Euler(new Vector3(0, -transform.rotation.eulerAngles.y, 0)) * (hitPoint - (transform.position + Vector3.up));
                     anim.SetFloat("cx", Mathf.Clamp(hitpoint.x, -1, 1));
                     anim.SetFloat("cy", Mathf.Clamp(hitpoint.y, 0, 1));
@@ -2014,7 +2025,7 @@ public class EnemyWorker : MonoBehaviour
     public void ResetForPool()
     {
         ResetTransientCombatState(true);
-        health = 0; // One successful unblocked hit defeats an arena enemy.
+        health = startingHealth;
         guard = 0;
         swing = 0;
         attackSlowTriggered = false;

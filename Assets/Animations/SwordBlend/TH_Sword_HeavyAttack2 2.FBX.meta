@@ -1,7 +1,7 @@
 fileFormatVersion: 2
 guid: 25074b1f96b3e684f8e6385b552119fb
 ModelImporter:
-  serializedVersion: 22200
+  serializedVersion: 24000
   internalIDToNameTable:
   - first:
       74: 5650393853647964605
@@ -12,6 +12,7 @@ ModelImporter:
     materialName: 0
     materialSearch: 1
     materialLocation: 1
+    searchTexturesGlobally: 1
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
@@ -19,8 +20,6 @@ ModelImporter:
     optimizeGameObjects: 0
     removeConstantScaleCurves: 0
     motionNodeName: 
-    rigImportErrors: 
-    rigImportWarnings: 
     animationImportErrors: 
     animationImportWarnings: "\nClip 'TH_Sword_HeavyAttack2' has import animation
       warnings that might lower retargeting quality:\nNote: Activate translation
@@ -610,8 +609,7 @@ ModelImporter:
     hasTranslationDoF: 0
     hasExtraRoot: 1
     skeletonHasParents: 1
-  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: 79b593bbd398b044390ccdb503e69cf6,
-    type: 3}
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: 79b593bbd398b044390ccdb503e69cf6, type: 3}
   autoGenerateAvatarMappingIfUnspecified: 1
   animationType: 3
   humanoidOversampling: 1

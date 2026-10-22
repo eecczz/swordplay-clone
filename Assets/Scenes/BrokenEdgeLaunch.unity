@@ -15342,6 +15342,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -112514,6 +112516,63 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.00000008009374, y: 0.8289515, z: 0.18054582}
     m_Extent: {x: 0.024249343, y: 0.04899022, z: 0.040204585}
   m_DirtyAABB: 0
+--- !u!1 &240352814
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 240352815}
+  - component: {fileID: 240352816}
+  m_Layer: 0
+  m_Name: Stair Link 14
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &240352815
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 240352814}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &240352816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 240352814}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -8.325432, y: -0.00000008560065, z: -34.92232}
+  m_EndPoint: {x: -8.325432, y: 2.5714285, z: -29.952204}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.9220726
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1001 &240360785
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -118236,63 +118295,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8591401194178918325, guid: 3c99454c0c239a64ca84f603d66e9d09, type: 3}
   m_PrefabInstance: {fileID: 251730883}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &251814160
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 251814161}
-  - component: {fileID: 251814162}
-  m_Layer: 0
-  m_Name: Stair Link 13
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &251814161
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 251814160}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &251814162
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 251814160}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -17.75, y: -11.142858, z: -1}
-  m_EndPoint: {x: -14.236175, y: -10.751013, z: -1.027235}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.743399
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &252174469
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -152089,6 +152091,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 0
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -160410,6 +160414,63 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000078231096, y: 0.8574589, z: 0.16759048}
     m_Extent: {x: 0.061804026, y: 0.016718507, z: 0.0150298625}
   m_DirtyAABB: 0
+--- !u!1 &338495033
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 338495034}
+  - component: {fileID: 338495035}
+  m_Layer: 0
+  m_Name: Stair Link 19
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &338495034
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 338495033}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &338495035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 338495033}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -26.3125, y: -22.375147, z: 29.75}
+  m_EndPoint: {x: -27.793396, y: -26.160536, z: 41.423584}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 7.9620852
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &338545429
 GameObject:
   m_ObjectHideFlags: 0
@@ -174444,6 +174505,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2872596721437497262, guid: 2a9b8a25bc63da941a79e7e3bec1e558, type: 3}
   m_PrefabInstance: {fileID: 367101252}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &367182209
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 367182210}
+  - component: {fileID: 367182211}
+  m_Layer: 0
+  m_Name: Stair Link 16
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &367182210
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 367182209}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &367182211
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 367182209}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -2.0627007, y: 9.1, z: -30.92233}
+  m_EndPoint: {x: -1.1000004, y: 6.9414744, z: -22.752058}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 5.486791
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &367344447
 GameObject:
   m_ObjectHideFlags: 0
@@ -177359,6 +177477,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -205074,63 +205194,6 @@ Transform:
   - {fileID: 1384262879}
   m_Father: {fileID: 271543443}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &434384130
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 434384131}
-  - component: {fileID: 434384132}
-  m_Layer: 0
-  m_Name: Stair Link 12
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &434384131
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 434384130}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &434384132
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 434384130}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 45.47772, y: 1.9865415, z: -21.891968}
-  m_EndPoint: {x: 46.06218, y: 0.37876177, z: -18.4956}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.5498536
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &434738704
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -225220,6 +225283,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -244815,6 +244880,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5795251280297461264, guid: 728c170364180d74c91b4321c1bb4d46, type: 3}
   m_PrefabInstance: {fileID: 510076070}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &510077958
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 510077959}
+  - component: {fileID: 510077960}
+  m_Layer: 0
+  m_Name: Stair Link 21
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &510077959
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 510077958}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &510077960
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 510077958}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 17.65114, y: 9.400718, z: -30.350286}
+  m_EndPoint: {x: 18.288448, y: 6.175605, z: -21.971163}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 5.1433964
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &510229293
 GameObject:
   m_ObjectHideFlags: 0
@@ -250480,6 +250602,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -262551,6 +262675,63 @@ SkinnedMeshRenderer:
     m_Center: {x: 0, y: 0.8407622, z: 0.04035878}
     m_Extent: {x: 0.13099693, y: 0.035272658, z: 0.029526085}
   m_DirtyAABB: 0
+--- !u!1 &554141125
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 554141126}
+  - component: {fileID: 554141127}
+  m_Layer: 0
+  m_Name: Stair Link 10
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &554141126
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 554141125}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &554141127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 554141125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 5.5150647, y: -6, z: -0.49999595}
+  m_EndPoint: {x: 13.822237, y: -2.1327755, z: -1.0155528}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 3.0867944
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &554343029
 GameObject:
   m_ObjectHideFlags: 0
@@ -273701,63 +273882,6 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000074505806, y: 0.89170706, z: 0.16960216}
     m_Extent: {x: 0.07187368, y: 0.016816735, z: 0.019201875}
   m_DirtyAABB: 0
---- !u!1 &578903507
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 578903508}
-  - component: {fileID: 578903509}
-  m_Layer: 0
-  m_Name: Stair Link 6
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &578903508
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 578903507}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &578903509
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 578903507}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 33.51496, y: -3.9739792, z: 11.5}
-  m_EndPoint: {x: 38.359627, y: -0.98469263, z: 11.5}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 3.0867922
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &578949613
 GameObject:
   m_ObjectHideFlags: 0
@@ -281651,6 +281775,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6126688126996998013, guid: 356920d585785f5449fa892f6b9fb98d, type: 3}
   m_PrefabInstance: {fileID: 603660882}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &603757922
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 603757923}
+  - component: {fileID: 603757924}
+  m_Layer: 0
+  m_Name: Stair Link 20
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &603757923
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 603757922}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &603757924
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 603757922}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 45.47772, y: 1.9865415, z: -21.891968}
+  m_EndPoint: {x: 46.06218, y: 0.37876177, z: -18.4956}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.5498536
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &604302299
 GameObject:
   m_ObjectHideFlags: 0
@@ -287853,6 +288034,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -307977,6 +308160,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2828830823327252180, guid: a63c0ba2b2c119540855a7d7481957b3, type: 3}
   m_PrefabInstance: {fileID: 1847764199}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &665282156
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 665282157}
+  - component: {fileID: 665282158}
+  m_Layer: 0
+  m_Name: Stair Link 5
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &665282157
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 665282156}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &665282158
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 665282156}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -10.162453, y: -8.7449045, z: 27.5}
+  m_EndPoint: {x: -0.75, y: -8, z: 27.5}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 3.0867922
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &665397403
 GameObject:
   m_ObjectHideFlags: 0
@@ -328356,6 +328596,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -330140,63 +330382,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2339064603081033800, guid: 0321a9e1f417b5a4baad9f3b5d3353b7, type: 3}
   m_PrefabInstance: {fileID: 712411483}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &712496491
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 712496492}
-  - component: {fileID: 712496493}
-  m_Layer: 0
-  m_Name: Stair Link 14
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &712496492
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 712496491}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &712496493
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 712496491}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -28.485022, y: -3, z: -52.50001}
-  m_EndPoint: {x: -11.452872, y: -2.5236387, z: -52.294262}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 7.200014
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &712509655
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -347077,63 +347262,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7331871575289119404, guid: e406a70b4517d0f46961346ec0dad527, type: 3}
   m_PrefabInstance: {fileID: 750884970}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &750928527
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 750928528}
-  - component: {fileID: 750928529}
-  m_Layer: 0
-  m_Name: Stair Link 1
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &750928528
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 750928527}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &750928529
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 750928527}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -8.325432, y: 0.000000029802322, z: -34.92232}
-  m_EndPoint: {x: -8.325432, y: 2.5714285, z: -29.952204}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.9220726
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &751205762
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -349206,6 +349334,63 @@ Transform:
   - {fileID: 774976791}
   m_Father: {fileID: 2001295596}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &755837461
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 755837462}
+  - component: {fileID: 755837463}
+  m_Layer: 0
+  m_Name: Stair Link 9
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &755837462
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 755837461}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &755837463
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 755837461}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 7.9373007, y: 4.0181365, z: -22.35}
+  m_EndPoint: {x: 7.9000006, y: 1.3307731, z: -19.366667}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.3999999
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &755850675
 GameObject:
   m_ObjectHideFlags: 0
@@ -362627,6 +362812,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -390376,6 +390563,58 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2339064603081033800, guid: 0321a9e1f417b5a4baad9f3b5d3353b7, type: 3}
   m_PrefabInstance: {fileID: 851782381}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &852243890
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 852243891}
+  m_Layer: 0
+  m_Name: Generated Stair Links
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &852243891
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 852243890}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1874516649}
+  - {fileID: 1932674725}
+  - {fileID: 1706466636}
+  - {fileID: 1247996197}
+  - {fileID: 665282157}
+  - {fileID: 1673442701}
+  - {fileID: 2114596390}
+  - {fileID: 1265949600}
+  - {fileID: 755837462}
+  - {fileID: 554141126}
+  - {fileID: 883965812}
+  - {fileID: 1304783681}
+  - {fileID: 1311266254}
+  - {fileID: 240352815}
+  - {fileID: 1770131915}
+  - {fileID: 367182210}
+  - {fileID: 1379025193}
+  - {fileID: 1972524161}
+  - {fileID: 338495034}
+  - {fileID: 603757923}
+  - {fileID: 510077959}
+  m_Father: {fileID: 1478890788}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &852509892
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -404685,6 +404924,63 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000044703484, y: 0.72985846, z: 0.1294077}
     m_Extent: {x: 0.10882779, y: 0.08680463, z: 0.092383415}
   m_DirtyAABB: 0
+--- !u!1 &883965811
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 883965812}
+  - component: {fileID: 883965813}
+  m_Layer: 0
+  m_Name: Stair Link 11
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &883965812
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 883965811}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &883965813
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 883965811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 19.937296, y: -5.9818635, z: 33.649998}
+  m_EndPoint: {x: 19.937296, y: -9.710073, z: 37.471478}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.4000068
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &884443509
 GameObject:
   m_ObjectHideFlags: 0
@@ -446534,6 +446830,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -480334,63 +480632,6 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000078231096, y: 0.8572123, z: 0.16806242}
     m_Extent: {x: 0.058332507, y: 0.01660657, z: 0.014925092}
   m_DirtyAABB: 0
---- !u!1 &1072530932
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1072530933}
-  - component: {fileID: 1072530934}
-  m_Layer: 0
-  m_Name: Stair Link 4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1072530933
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1072530932}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1072530934
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1072530932}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -2.4850354, y: -16, z: 43.786148}
-  m_EndPoint: {x: 1.787302, y: -13.988982, z: 43.786148}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.7433984
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &1072870105
 GameObject:
   m_ObjectHideFlags: 0
@@ -481540,63 +481781,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2339064603081033800, guid: 0321a9e1f417b5a4baad9f3b5d3353b7, type: 3}
   m_PrefabInstance: {fileID: 1074627025}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1074843150
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1074843151}
-  - component: {fileID: 1074843152}
-  m_Layer: 0
-  m_Name: Stair Link 7
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1074843151
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1074843150}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1074843152
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1074843150}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 7.9373007, y: 4.0181365, z: -22.35}
-  m_EndPoint: {x: 7.9000006, y: 1.3307731, z: -19.366667}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.3999999
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &1074969656
 GameObject:
   m_ObjectHideFlags: 0
@@ -482055,6 +482239,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -508179,63 +508365,6 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000029802322, y: 0.9206209, z: 0.07844584}
     m_Extent: {x: 0.117792696, y: 0.11594656, z: 0.16109587}
   m_DirtyAABB: 0
---- !u!1 &1131062504
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1131062505}
-  - component: {fileID: 1131062506}
-  m_Layer: 0
-  m_Name: Stair Link 19
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1131062505
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1131062504}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1131062506
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1131062504}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 2.3, y: -2.5714288, z: 0}
-  m_EndPoint: {x: 5.3207674, y: -2.833702, z: -0.53995836}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 3.0867915
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &1131396491
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -516239,63 +516368,6 @@ SkinnedMeshRenderer:
     m_Center: {x: 0, y: 0.5329776, z: 0.046262883}
     m_Extent: {x: 0.9616557, y: 0.098707244, z: 0.1374563}
   m_DirtyAABB: 0
---- !u!1 &1153309142
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1153309143}
-  - component: {fileID: 1153309144}
-  m_Layer: 0
-  m_Name: Stair Link 11
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1153309143
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1153309142}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1153309144
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1153309142}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -8.348861, y: 2.0260205, z: -30.922327}
-  m_EndPoint: {x: -8.348861, y: 4, z: -26.077673}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.7433949
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &1153601353
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -563333,6 +563405,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4474562206784195189, guid: 220c26e53a4b56e4bbefe12d25947019, type: 3}
   m_PrefabInstance: {fileID: 1247879798}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1247996196
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1247996197}
+  - component: {fileID: 1247996198}
+  m_Layer: 0
+  m_Name: Stair Link 4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1247996197
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1247996196}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1247996198
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1247996196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -28.485022, y: -3, z: -52.50001}
+  m_EndPoint: {x: -11.452872, y: -2.5236387, z: -52.294262}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 7.200014
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!4 &1248670804 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3254199063200061615, guid: 9ddba06de76c9b04c921b5ac340c7874, type: 3}
@@ -571880,6 +572009,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2629646561710680063, guid: d812fc230ee0c8049a4d2974cff66b28, type: 3}
   m_PrefabInstance: {fileID: 1265734669}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1265949599
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1265949600}
+  - component: {fileID: 1265949601}
+  m_Layer: 0
+  m_Name: Stair Link 8
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1265949600
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1265949599}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1265949601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1265949599}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 33.51496, y: -3.9739792, z: 11.5}
+  m_EndPoint: {x: 38.359627, y: -0.98469263, z: 11.5}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 3.0867922
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1266021082
 GameObject:
   m_ObjectHideFlags: 0
@@ -581241,63 +581427,6 @@ Transform:
   - {fileID: 1915262815}
   m_Father: {fileID: 2019098507}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1289793864
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1289793865}
-  - component: {fileID: 1289793866}
-  m_Layer: 0
-  m_Name: Stair Link 9
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1289793865
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1289793864}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1289793866
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1289793864}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 29.514967, y: -4.861754, z: 11.5}
-  m_EndPoint: {x: 38.359627, y: -0.98469263, z: 11.5}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 3.0867922
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &1290575327
 GameObject:
   m_ObjectHideFlags: 0
@@ -585574,8 +585703,7 @@ MonoBehaviour:
   mobilePoseLerpSpeed: 12
   mobileSwipeSpeed: 900
   mobileSwingPoseTolerance: 4
-  pcAttackGoalThreshold: 0.001
-  pcAttackSpeedPerMouseUnit: 1.25
+  pcAttackDirectionTolerance: 30
   pcAttackMaximumSpeed: 3
   pcAttackEntryGrace: 0.15
   swordOffset: {x: 0, y: 0, z: 0}
@@ -585588,6 +585716,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -586775,6 +586905,63 @@ Transform:
   m_Children: []
   m_Father: {fileID: 84682158}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1304783680
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1304783681}
+  - component: {fileID: 1304783682}
+  m_Layer: 0
+  m_Name: Stair Link 12
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1304783681
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1304783680}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1304783682
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1304783680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 0.08730221, y: 4.2496724, z: -38.5}
+  m_EndPoint: {x: 13.787306, y: 4, z: -38.5}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 4.8
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1304874738
 GameObject:
   m_ObjectHideFlags: 0
@@ -589488,6 +589675,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6290414045211346901, guid: c668b238d48b9824d9e5d9a00ba078c7, type: 3}
   m_PrefabInstance: {fileID: 1311161419}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1311266253
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1311266254}
+  - component: {fileID: 1311266255}
+  m_Layer: 0
+  m_Name: Stair Link 13
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1311266254
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1311266253}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1311266255
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1311266253}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -17.912699, y: -9.988982, z: 27.500006}
+  m_EndPoint: {x: -10.097429, y: -8.7449045, z: 27.500006}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.400007
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1311973542
 GameObject:
   m_ObjectHideFlags: 0
@@ -614285,63 +614529,6 @@ Transform:
   - {fileID: 52125957}
   m_Father: {fileID: 330231352}
   m_LocalEulerAnglesHint: {x: 20, y: 0, z: 0}
---- !u!1 &1358315687
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1358315688}
-  - component: {fileID: 1358315689}
-  m_Layer: 0
-  m_Name: Stair Link 10
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1358315688
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1358315687}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1358315689
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1358315687}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 34.35, y: 1.9710668, z: -21.80556}
-  m_EndPoint: {x: 33.813587, y: 0.37239063, z: -18.560606}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.5484574
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &1358356731
 GameObject:
   m_ObjectHideFlags: 0
@@ -615152,63 +615339,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4474562206784195189, guid: 220c26e53a4b56e4bbefe12d25947019, type: 3}
   m_PrefabInstance: {fileID: 1359646095}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1359804822
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1359804823}
-  - component: {fileID: 1359804824}
-  m_Layer: 0
-  m_Name: Stair Link 2
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1359804823
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1359804822}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1359804824
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1359804822}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -2.0627007, y: 9.099999, z: -30.92233}
-  m_EndPoint: {x: -1.1000004, y: 6.9414744, z: -22.752058}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 5.486791
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &1360045717
 GameObject:
   m_ObjectHideFlags: 0
@@ -627060,6 +627190,63 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000074505806, y: 0.89025027, z: 0.17008366}
     m_Extent: {x: 0.07351595, y: 0.014261484, z: 0.016979769}
   m_DirtyAABB: 0
+--- !u!1 &1379025192
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1379025193}
+  - component: {fileID: 1379025194}
+  m_Layer: 0
+  m_Name: Stair Link 17
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1379025193
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1379025192}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1379025194
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1379025192}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -2.4850354, y: -16, z: 43.786148}
+  m_EndPoint: {x: 1.787302, y: -13.988982, z: 43.786148}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.7433984
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1379475378
 GameObject:
   m_ObjectHideFlags: 0
@@ -628879,6 +629066,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -645696,63 +645885,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1408428337766955859, guid: da5ff56e66480384c8f0b9c2e06ff96d, type: 3}
   m_PrefabInstance: {fileID: 1419860315}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1419874674
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1419874675}
-  - component: {fileID: 1419874676}
-  m_Layer: 0
-  m_Name: Stair Link 18
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1419874675
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1419874674}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1419874676
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1419874674}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 5.5150647, y: -6, z: -0.49999595}
-  m_EndPoint: {x: 13.822237, y: -2.1327755, z: -1.0155528}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 3.0867944
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &1419971534
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -664467,63 +664599,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 872954663666569469, guid: b2e45dd6af1b1874582506c085ff8e5c, type: 3}
   m_PrefabInstance: {fileID: 1465687150}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1465795028
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1465795029}
-  - component: {fileID: 1465795030}
-  m_Layer: 0
-  m_Name: Stair Link 17
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1465795029
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1465795028}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1465795030
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1465795028}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 17.65114, y: 9.400718, z: -30.350286}
-  m_EndPoint: {x: 18.288448, y: 6.175605, z: -21.971163}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 5.1433964
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &1465830326
 GameObject:
   m_ObjectHideFlags: 0
@@ -666593,7 +666668,7 @@ MonoBehaviour:
   - {fileID: 1506863169}
   - {fileID: 1383010037}
   - {fileID: 475242594}
-  initialActiveEnemies: 0
+  initialActiveEnemies: 1
   entranceInterval: 0.32
   recycleDelay: 0.35
   enemyTempoMultiplierPerDefeat: 0.94
@@ -668594,7 +668669,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2144575687}
+  - {fileID: 852243891}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1479180457
@@ -682258,6 +682333,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -738837,6 +738914,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -749448,63 +749527,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5309832051450216237, guid: 00c2dce0170b6ec4b89877e9909d04c7, type: 3}
   m_PrefabInstance: {fileID: 1665924944}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1665930756
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1665930757}
-  - component: {fileID: 1665930758}
-  m_Layer: 0
-  m_Name: Stair Link 21
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1665930757
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1665930756}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1665930758
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1665930756}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -17.912699, y: -9.988982, z: 27.500006}
-  m_EndPoint: {x: -10.097429, y: -8.7449045, z: 27.500006}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.400007
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &1666290525
 GameObject:
   m_ObjectHideFlags: 0
@@ -757755,6 +757777,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 872954663666569469, guid: b2e45dd6af1b1874582506c085ff8e5c, type: 3}
   m_PrefabInstance: {fileID: 1673423208}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1673442700
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1673442701}
+  - component: {fileID: 1673442702}
+  m_Layer: 0
+  m_Name: Stair Link 6
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1673442701
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1673442700}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1673442702
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1673442700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 1.95, y: -1.174998, z: 0.90000004}
+  m_EndPoint: {x: 13.900001, y: -2.124999, z: -1}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 7.5433974
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1673706955
 GameObject:
   m_ObjectHideFlags: 0
@@ -762557,63 +762636,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 582656433872308831, guid: 39445be2a174657489514b0cb04de1ac, type: 3}
   m_PrefabInstance: {fileID: 1683319995}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1683899855
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1683899856}
-  - component: {fileID: 1683899857}
-  m_Layer: 0
-  m_Name: Stair Link 16
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1683899856
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1683899855}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1683899857
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1683899855}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 1.95, y: -1.1749995, z: 0.90000004}
-  m_EndPoint: {x: 13.900001, y: -2.124999, z: -1}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 7.5433974
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &1683980568
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -770989,6 +771011,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -771734,6 +771758,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6290414045211346901, guid: c668b238d48b9824d9e5d9a00ba078c7, type: 3}
   m_PrefabInstance: {fileID: 1706224858}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1706466635
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1706466636}
+  - component: {fileID: 1706466637}
+  m_Layer: 0
+  m_Name: Stair Link 3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1706466636
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1706466635}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1706466637
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1706466635}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 2.3, y: -2.5714288, z: 0}
+  m_EndPoint: {x: 5.3207674, y: -2.833702, z: -0.53995836}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 3.0867915
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1706636975
 GameObject:
   m_ObjectHideFlags: 0
@@ -787696,6 +787777,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -798885,6 +798968,63 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000074505806, y: 0.76831603, z: 0.17405795}
     m_Extent: {x: 0.05409645, y: 0.023912191, z: 0.022788003}
   m_DirtyAABB: 0
+--- !u!1 &1770131914
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1770131915}
+  - component: {fileID: 1770131916}
+  m_Layer: 0
+  m_Name: Stair Link 15
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1770131915
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1770131914}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1770131916
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1770131914}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 29.514967, y: -4.861754, z: 11.5}
+  m_EndPoint: {x: 38.359627, y: -0.98469263, z: 11.5}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 3.0867922
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1770553296
 GameObject:
   m_ObjectHideFlags: 0
@@ -810204,63 +810344,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8874499867527716165, guid: 088042ca4ae70b34595c13307b36f6fd, type: 3}
   m_PrefabInstance: {fileID: 1797408210}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1797444154
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1797444155}
-  - component: {fileID: 1797444156}
-  m_Layer: 0
-  m_Name: Stair Link 5
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1797444155
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1797444154}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1797444156
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1797444154}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 9.972033, y: -13.669771, z: 39.5}
-  m_EndPoint: {x: 17.787302, y: -9.988982, z: 39.5}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.4000115
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &1797677264
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -853374,6 +853457,63 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000029802322, y: 0.8537178, z: 0.11097293}
     m_Extent: {x: 0.1421205, y: 0.22504473, z: 0.22479832}
   m_DirtyAABB: 0
+--- !u!1 &1874516648
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1874516649}
+  - component: {fileID: 1874516650}
+  m_Layer: 0
+  m_Name: Stair Link 1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1874516649
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1874516648}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1874516650
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1874516648}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 34.35, y: 1.9710668, z: -21.80556}
+  m_EndPoint: {x: 33.813587, y: 0.37239063, z: -18.560606}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.5484574
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1874879387
 GameObject:
   m_ObjectHideFlags: 0
@@ -871208,63 +871348,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 74449067863214931, guid: f55f25ba3de4b294f95933ea6391aa57, type: 3}
   m_PrefabInstance: {fileID: 1921149491}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1921376328
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1921376329}
-  - component: {fileID: 1921376330}
-  m_Layer: 0
-  m_Name: Stair Link 15
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1921376329
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1921376328}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1921376330
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1921376328}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -10.162453, y: -8.7449045, z: 27.5}
-  m_EndPoint: {x: -0.75, y: -8, z: 27.5}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 3.0867922
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &1921870747
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -876853,6 +876936,63 @@ Transform:
   - {fileID: 753432689}
   m_Father: {fileID: 201163577}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1932674724
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1932674725}
+  - component: {fileID: 1932674726}
+  m_Layer: 0
+  m_Name: Stair Link 2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1932674725
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1932674724}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1932674726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1932674724}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -17.75, y: -11.142858, z: -1}
+  m_EndPoint: {x: -14.236175, y: -10.751013, z: -1.027235}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.743399
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!4 &1932970976 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 175674519407561032, guid: ec3cd9c99c083d84ea7589b9c1304836, type: 3}
@@ -885628,63 +885768,6 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000029802322, y: 0.86608315, z: 0.046070434}
     m_Extent: {x: 0.1379911, y: 0.1745039, z: 0.1776357}
   m_DirtyAABB: 0
---- !u!1 &1960057323
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1960057324}
-  - component: {fileID: 1960057325}
-  m_Layer: 0
-  m_Name: Stair Link 8
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1960057324
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1960057323}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1960057325
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1960057323}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 0.08730221, y: 4.2496724, z: -38.5}
-  m_EndPoint: {x: 13.787306, y: 4, z: -38.5}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 4.8
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &1960202997
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -889978,6 +890061,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -890278,6 +890363,63 @@ Transform:
   - {fileID: 2136280244}
   m_Father: {fileID: 1935036893}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1972524160
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1972524161}
+  - component: {fileID: 1972524162}
+  m_Layer: 0
+  m_Name: Stair Link 18
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1972524161
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1972524160}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1972524162
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1972524160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: -8.348861, y: 2.0260205, z: -30.922327}
+  m_EndPoint: {x: -8.348861, y: 4, z: -26.077673}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.7433949
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1 &1972657334
 GameObject:
   m_ObjectHideFlags: 0
@@ -923273,63 +923415,6 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.000000044703484, y: -0.7043231, z: 0.007556632}
     m_Extent: {x: 0.22096287, y: 0.25043172, z: 0.24951746}
   m_DirtyAABB: 0
---- !u!1 &2040087901
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2040087902}
-  - component: {fileID: 2040087903}
-  m_Layer: 0
-  m_Name: Stair Link 20
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2040087902
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2040087901}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2040087903
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2040087901}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: 19.937296, y: -5.9818635, z: 33.649998}
-  m_EndPoint: {x: 19.937296, y: -9.710073, z: 37.471478}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 2.4000068
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1 &2040371925
 GameObject:
   m_ObjectHideFlags: 0
@@ -925757,63 +925842,6 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.18224144, y: 0.532377, z: 0.03471089}
     m_Extent: {x: 0.8624202, y: 0.116864234, z: 0.15213141}
   m_DirtyAABB: 0
---- !u!1 &2043366585
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2043366586}
-  - component: {fileID: 2043366587}
-  m_Layer: 0
-  m_Name: Stair Link 3
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2043366586
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2043366585}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2144575687}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2043366587
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2043366585}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SerializedVersion: 1
-  m_AgentTypeID: 0
-  m_StartPoint: {x: -26.3125, y: -22.375147, z: 29.75}
-  m_EndPoint: {x: -27.793396, y: -26.160538, z: 41.423584}
-  m_StartTransform: {fileID: 0}
-  m_EndTransform: {fileID: 0}
-  m_Activated: 1
-  m_Width: 7.9620852
-  m_CostModifier: 1
-  m_IsOverridingCost: 0
-  m_Bidirectional: 1
-  m_AutoUpdatePosition: 0
-  m_Area: 0
 --- !u!1001 &2043539298
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -954236,6 +954264,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8330685299171163299, guid: 70778f1981fc104418655fef7ce7c002, type: 3}
   m_PrefabInstance: {fileID: 2113839974}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2114596389
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2114596390}
+  - component: {fileID: 2114596391}
+  m_Layer: 0
+  m_Name: Stair Link 7
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2114596390
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2114596389}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852243891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2114596391
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2114596389}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6eeb5dc026fdf4b488bc7ae0138ab719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SerializedVersion: 1
+  m_AgentTypeID: 0
+  m_StartPoint: {x: 9.972033, y: -13.669771, z: 39.5}
+  m_EndPoint: {x: 17.787302, y: -9.988982, z: 39.5}
+  m_StartTransform: {fileID: 0}
+  m_EndTransform: {fileID: 0}
+  m_Activated: 1
+  m_Width: 2.4000115
+  m_CostModifier: 1
+  m_IsOverridingCost: 0
+  m_Bidirectional: 1
+  m_AutoUpdatePosition: 0
+  m_Area: 0
 --- !u!1001 &2114660315
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -966290,58 +966375,6 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000000014901161, y: 0.87635434, z: 0.04040432}
     m_Extent: {x: 0.13754536, y: 0.1841166, z: 0.17361169}
   m_DirtyAABB: 0
---- !u!1 &2144575686
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2144575687}
-  m_Layer: 0
-  m_Name: Generated Stair Links
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2144575687
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2144575686}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 750928528}
-  - {fileID: 1359804823}
-  - {fileID: 2043366586}
-  - {fileID: 1072530933}
-  - {fileID: 1797444155}
-  - {fileID: 578903508}
-  - {fileID: 1074843151}
-  - {fileID: 1960057324}
-  - {fileID: 1289793865}
-  - {fileID: 1358315688}
-  - {fileID: 1153309143}
-  - {fileID: 434384131}
-  - {fileID: 251814161}
-  - {fileID: 712496492}
-  - {fileID: 1921376329}
-  - {fileID: 1683899856}
-  - {fileID: 1465795029}
-  - {fileID: 1419874675}
-  - {fileID: 1131062505}
-  - {fileID: 2040087902}
-  - {fileID: 1665930757}
-  m_Father: {fileID: 1478890788}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2144935379
 GameObject:
   m_ObjectHideFlags: 0
@@ -971803,6 +971836,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16
@@ -975907,8 +975942,7 @@ MonoBehaviour:
   mobilePoseLerpSpeed: 12
   mobileSwipeSpeed: 900
   mobileSwingPoseTolerance: 4
-  pcAttackGoalThreshold: 0.001
-  pcAttackSpeedPerMouseUnit: 1.25
+  pcAttackDirectionTolerance: 30
   pcAttackMaximumSpeed: 3
   pcAttackEntryGrace: 0.15
   swordOffset: {x: -0.38, y: 0.514, z: -0.027}
@@ -975921,6 +975955,8 @@ MonoBehaviour:
   attackHitStart: 0
   attackHitEnd: 1.05
   swordSlashTravelInBladeLengths: 2.25
+  swordSlashAgingMode: 1
+  swordSlashTimeBasedLifetime: 0.25
   swordSlashBladeWidth: 1
   swordSlashIntensity: 1.1
   swordSlashTextureFlow: 0.16

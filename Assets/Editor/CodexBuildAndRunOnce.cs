@@ -9,7 +9,7 @@ using UnityEngine;
 [InitializeOnLoad]
 internal static class CodexBuildAndRunOnce
 {
-    // File-triggered entry points keep automated builds isolated from scene setup helpers.
+    // File-triggered entry points support both setup builds and direct builds without resaving scenes.
     private const string RequestPath = "Library/CodexBuildAndRunOnce.request";
     private const string ResultPath = "Library/CodexBuildAndRunOnce.result";
     private const string CleanRequestPath = "Library/CodexCleanBuildAndRunOnce.request";

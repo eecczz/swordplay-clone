@@ -112,8 +112,30 @@ public static class CombatDirectionUtility
         // measures only the angle visible on screen; tilting either sword toward or away
         // from the camera cannot incorrectly increase the blocking angle.
         Vector3 attackView = viewCamera.transform.InverseTransformDirection(attackingSword.up);
-        Vector3 guardView = viewCamera.transform.InverseTransformDirection(guardingSword.up);
         Vector2 attackScreen = new(attackView.x, attackView.y);
+        return CanBlock(attackScreen, guardingSword, viewCamera);
+    }
+
+    public static bool CanBlock(Vector2 attackingScreenDirection, Transform guardingSword)
+    {
+        if (guardingSword == null)
+            return false;
+
+        Camera viewCamera = Camera.main;
+        if (viewCamera == null || !viewCamera.isActiveAndEnabled)
+            return false;
+
+        return CanBlock(attackingScreenDirection, guardingSword, viewCamera);
+    }
+
+    public static bool HasDifferentHorizontalSign(float attackTx, float guardTx)
+    {
+        return GetSign(attackTx) != GetSign(guardTx);
+    }
+
+    private static bool CanBlock(Vector2 attackScreen, Transform guardingSword, Camera viewCamera)
+    {
+        Vector3 guardView = viewCamera.transform.InverseTransformDirection(guardingSword.up);
         Vector2 guardScreen = new(guardView.x, guardView.y);
 
         if (attackScreen.sqrMagnitude < 0.000001f || guardScreen.sqrMagnitude < 0.000001f)
@@ -121,5 +143,12 @@ public static class CombatDirectionUtility
 
         float visibleAngle = Vector2.Angle(attackScreen, guardScreen);
         return visibleAngle >= MinimumBlockingSwordAngle;
+    }
+
+    private static int GetSign(float value)
+    {
+        if (value < 0f) return -1;
+        if (value > 0f) return 1;
+        return 0;
     }
 }

@@ -4,6 +4,12 @@ using UnityEngine.Rendering;
 
 namespace Swordplay.Visuals
 {
+    public enum SwordSlashTrailAgingMode
+    {
+        TimeBased,
+        MotionDistance
+    }
+
     /// <summary>
     /// Builds one slash ribbon from the rendered blade's real Start/Tip history.
     /// The store particle prefab is intentionally not instantiated: its looping,
@@ -17,6 +23,8 @@ namespace Swordplay.Visuals
         private const string RibbonObjectName = "Sword Slash Motion Ribbon";
 
         [SerializeField, Range(0.5f, 4f)] private float trailLengthInBladeLengths = 2.25f;
+        [SerializeField] private SwordSlashTrailAgingMode agingMode = SwordSlashTrailAgingMode.MotionDistance;
+        [SerializeField, Min(0.02f)] private float timeBasedLifetime = 0.25f;
         [SerializeField, Range(0.002f, 0.08f)] private float sampleSpacingInBladeLengths = 0.018f;
         [SerializeField, Range(6, 48)] private int maxSamples = 30;
         [SerializeField, Range(0.1f, 2f)] private float intensity = 1.1f;
@@ -50,10 +58,12 @@ namespace Swordplay.Visuals
             public Vector3 Start;
             public Vector3 Tip;
             public float Travel;
+            public float CreatedAt;
         }
 
         public static SwordSlashVfxSynchronizer Configure(
             Transform sword, Animator animator, float travelInBladeLengths,
+            SwordSlashTrailAgingMode agingMode, float timeBasedLifetime,
             float bladeWidth, float intensity, float textureFlow,
             bool useWeaponEffectColor, Color colorOverride, Material materialOverride)
         {
@@ -63,6 +73,8 @@ namespace Swordplay.Visuals
                 synchronizer = sword.gameObject.AddComponent<SwordSlashVfxSynchronizer>();
             synchronizer.animator = animator;
             synchronizer.trailLengthInBladeLengths = Mathf.Clamp(travelInBladeLengths, 0.5f, 4f);
+            synchronizer.agingMode = agingMode;
+            synchronizer.timeBasedLifetime = Mathf.Max(0.02f, timeBasedLifetime);
             synchronizer.bladeWidth = Mathf.Clamp(bladeWidth, 0.25f, 1.5f);
             synchronizer.intensity = Mathf.Clamp(intensity, 0.1f, 2f);
             synchronizer.textureFlow = Mathf.Clamp01(textureFlow);
@@ -126,13 +138,19 @@ namespace Swordplay.Visuals
                 AddSample();
 
             float maximumTrailTravel = referenceBladeLength * trailLengthInBladeLengths;
+            float now = Time.time;
             for (int i = samples.Count - 1; i >= 0; i--)
-                if (accumulatedTravel - samples[i].Travel > maximumTrailTravel)
+            {
+                bool expired = agingMode == SwordSlashTrailAgingMode.TimeBased
+                    ? now - samples[i].CreatedAt > timeBasedLifetime
+                    : accumulatedTravel - samples[i].Travel > maximumTrailTravel;
+                if (expired)
                     samples.RemoveAt(i);
+            }
             if (samples.Count > maxSamples)
                 samples.RemoveRange(maxSamples, samples.Count - maxSamples);
 
-            BuildMesh(maximumTrailTravel);
+            BuildMesh(maximumTrailTravel, now);
             if (ribbonMaterial != null)
                 ribbonMaterial.SetFloat("_MotionPhase",
                     accumulatedTravel / Mathf.Max(referenceBladeLength, 0.05f) * textureFlow);
@@ -144,11 +162,12 @@ namespace Swordplay.Visuals
             {
                 Start = Vector3.LerpUnclamped(bladeStart.position, bladeTip.position, (1f - bladeWidth) * 0.5f),
                 Tip = Vector3.LerpUnclamped(bladeStart.position, bladeTip.position, (1f + bladeWidth) * 0.5f),
-                Travel = accumulatedTravel
+                Travel = accumulatedTravel,
+                CreatedAt = Time.time
             });
         }
 
-        private void BuildMesh(float maximumTrailTravel)
+        private void BuildMesh(float maximumTrailTravel, float now)
         {
             if (samples.Count < 2)
             {
@@ -164,7 +183,9 @@ namespace Swordplay.Visuals
             for (int i = 0; i < samples.Count; i++)
             {
                 BladeSample sample = samples[i];
-                float age = Mathf.Clamp01((accumulatedTravel - sample.Travel) / Mathf.Max(maximumTrailTravel, 0.001f));
+                float age = agingMode == SwordSlashTrailAgingMode.TimeBased
+                    ? Mathf.Clamp01((now - sample.CreatedAt) / timeBasedLifetime)
+                    : Mathf.Clamp01((accumulatedTravel - sample.Travel) / Mathf.Max(maximumTrailTravel, 0.001f));
                 byte alpha = (byte)Mathf.RoundToInt(255f * Mathf.Pow(1f - age, 0.7f));
                 vertices.Add(sample.Start);
                 vertices.Add(sample.Tip);
